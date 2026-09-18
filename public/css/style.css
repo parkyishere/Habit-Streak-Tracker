@@ -233,36 +233,3 @@ body { background-color: #f4f6f9; color: #333; display: flex; flex-direction: co
   transform: translateY(10px);
 }
 
-/* Inline Detail View Section */
-#habit-detail-section {
-  margin-top: 20px;
-  border: 1px solid #e1e4e8;
-  background-color: #fafbfc;
-  padding: 20px;
-  border-radius: 8px;
-}
-
-.detail-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-}
-
-.detail-actions {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.btn.text-btn {
-  background: none;
-  border: none;
-  color: #586069;
-  cursor: pointer;
-}
-
-.btn.text-btn:hover {
-  color: #24292e;
-  text-decoration: underline;
-}

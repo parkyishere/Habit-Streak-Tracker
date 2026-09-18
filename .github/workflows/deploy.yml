@@ -1,0 +1,24 @@
+name: Deploy Static Site to runs-on.dev
+
+on:
+  push:
+    branches:
+      - main  # <--- Only triggers on the main branch!
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Create site.zip with index.html at root
+        run: |
+          cd public
+          zip -r ../site.zip .
+
+      - name: Deploy to runs-on.dev
+        run: |
+          curl -X POST https://runs-on.dev/api/sites/deploy \
+            -H "Authorization: Bearer ${{ secrets.RUNS_ON_DEV_TOKEN }}" \
+            -F "site=@site.zip"
