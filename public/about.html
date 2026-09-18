@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Habit Tracker - About</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <a href="/index.html" class="nav-brand">🔥 Habit Tracker</a>
+    <ul class="nav-links">
+      <li><a href="/index.html" class="nav-item">Home</a></li>
+      <li><a href="/dashboard.html" class="nav-item">Dashboard</a></li>
+      <li><a href="/about.html" class="nav-item active">About</a></li>
+      <li><a href="/login.html" class="nav-item" id="nav-login">Login</a></li>
+      <li><a href="/register.html" class="nav-item" id="nav-register">Register</a></li>
+      <li><button id="logout-btn" class="btn danger hidden" onclick="logout()">Logout</button></li>
+    </ul>
+  </nav>
+
+  <div class="container">
+    <div class="card">
+      <h2>About This Project</h2>
+      <p style="margin-top: 10px; line-height: 1.6;">
+        Developed for the NEP 2020 Field Project curriculum at Modern College Shivajinagar.
+      </p>
+      <ul style="margin: 15px 0 0 20px; line-height: 1.8;">
+        <li><strong>Architecture:</strong> Modular multi-page application.</li>
+        <li><strong>Backend:</strong> Node.js, Express, SQLite (`better-sqlite3`), Socket.io.</li>
+        <li><strong>Security:</strong> JWT token authentication with `bcryptjs` password hashing.</li>
+      </ul>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <p>&copy; 2026 Habit Tracker | College Academic Project</p>
+  </footer>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="js/common.js"></script>
+</body>
+</html>

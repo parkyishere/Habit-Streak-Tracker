@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Habit Tracker - Login</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <a href="/index.html" class="nav-brand">🔥 Habit Tracker</a>
+    <ul class="nav-links">
+      <li><a href="/index.html" class="nav-item">Home</a></li>
+      <li><a href="/about.html" class="nav-item">About</a></li>
+      <li><a href="/login.html" class="nav-item active">Login</a></li>
+      <li><a href="/register.html" class="nav-item">Register</a></li>
+    </ul>
+  </nav>
+
+  <div class="container">
+    <div class="card auth-card">
+      <h2>Login</h2>
+      <form id="login-form">
+        <input type="email" id="login-email" placeholder="Email" required class="input">
+        <input type="password" id="login-password" placeholder="Password" required class="input">
+        <button type="submit" class="btn primary full-width">Login</button>
+      </form>
+      <p class="auth-switch">Need an account? <a href="/register.html">Register here</a></p>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <p>&copy; 2026 Habit Tracker | College Academic Project</p>
+  </footer>
+
+  <script src="js/auth.js"></script>
+</body>
+</html>

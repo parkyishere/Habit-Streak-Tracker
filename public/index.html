@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Habit Tracker - Home</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <a href="/index.html" class="nav-brand">🔥 Habit Tracker</a>
+    <ul class="nav-links">
+      <li><a href="/index.html" class="nav-item active">Home</a></li>
+      <li><a href="/dashboard.html" class="nav-item">Dashboard</a></li>
+      <li><a href="/about.html" class="nav-item">About</a></li>
+      <li><a href="/login.html" class="nav-item" id="nav-login">Login</a></li>
+      <li><a href="/register.html" class="nav-item" id="nav-register">Register</a></li>
+      <li><button id="logout-btn" class="btn danger hidden" onclick="logout()">Logout</button></li>
+    </ul>
+  </nav>
+
+  <div class="container">
+    <div class="hero-card">
+      <h1>Track Habits. Build Consistency. Reach Your Goals.</h1>
+      <p>A simple, team-oriented habit streak tracker featuring real-time activity feeds and analytical progress tracking.</p>
+      <div class="hero-buttons">
+        <a href="/register.html" class="btn primary">Get Started Free</a>
+        <a href="/login.html" class="btn success">Login to Account</a>
+      </div>
+    </div>
+
+    <div class="features-grid">
+      <div class="feature-card">
+        <h3>🔥 Streak Engine</h3>
+        <p>Calculates daily consistency and longest personal streaks automatically.</p>
+      </div>
+      <div class="feature-card">
+        <h3>⚡ Real-Time Feed</h3>
+        <p>Powered by Socket.io to broadcast live updates as team members check in.</p>
+      </div>
+      <div class="feature-card">
+        <h3>📊 Progress Analytics</h3>
+        <p>Visual statistics and completion metrics stored securely in SQLite.</p>
+      </div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <p>&copy; 2026 Habit Tracker | College Academic Project</p>
+  </footer>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="js/common.js"></script>
+</body>
+</html>

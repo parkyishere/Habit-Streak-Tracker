@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Habit Tracker - Dashboard</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <a href="/index.html" class="nav-brand">Habit Tracker</a>
+    <ul class="nav-links">
+      <li><a href="/index.html" class="nav-item">Home</a></li>
+      <li><a href="/dashboard.html" class="nav-item active">Dashboard</a></li>
+      <li><a href="/about.html" class="nav-item">About</a></li>
+      <li><button id="logout-btn" class="btn danger" onclick="logout()">Logout</button></li>
+    </ul>
+  </nav>
+
+  <div class="container">
+    <header class="header">
+      <h1>Your Daily Habits</h1>
+    </header>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <h3>Total Habits</h3>
+        <p id="stat-habits">0</p>
+      </div>
+      <div class="stat-card">
+        <h3>Total Check-ins</h3>
+        <p id="stat-checkins">0</p>
+      </div>
+      <div class="stat-card">
+        <h3>Best Streak</h3>
+        <p id="stat-max-streak">0 days</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Create New Habit</h3>
+      <form id="habit-form" class="inline-form">
+        <input type="text" id="habit-title" placeholder="Habit title..." required class="input">
+        <input type="text" id="habit-desc" placeholder="Description..." class="input">
+        <select id="habit-frequency" class="input">
+          <option value="daily">Daily</option>
+          <option value="weekly">Weekly</option>
+          <option value="monthly">Monthly</option>
+        </select>
+        <button type="submit" class="btn success">Add Habit</button>
+      </form>
+    </div>
+
+    <div id="habits-list" class="habits-grid"></div>
+
+    <!-- Inline Details & GitHub Calendar Section -->
+    <div id="habit-detail-section" class="card hidden">
+      <div class="detail-header">
+        <div>
+          <h2 id="detail-title">Habit Details</h2>
+          <span id="detail-frequency" class="badge">daily</span>
+        </div>
+        <div class="detail-actions">
+          <button id="detail-edit-btn" class="btn secondary">Edit</button>
+          <button id="detail-delete-btn" class="btn danger">Delete</button>
+          <button id="close-detail-btn" class="btn text-btn">Close</button>
+        </div>
+      </div>
+      <p id="detail-desc" class="habit-desc"></p>
+      
+      <h3>Check-in Activity Grid</h3>
+      <div id="github-calendar" class="calendar-grid"></div>
+    </div>
+  </div>
+
+  <!-- Edit Modal -->
+  <div id="edit-modal" class="modal hidden">
+    <div class="modal-content">
+      <span class="close-modal" id="close-edit">&times;</span>
+      <h3>Edit Habit</h3>
+      <form id="edit-habit-form">
+        <input type="hidden" id="edit-habit-id">
+        <label>Title</label>
+        <input type="text" id="edit-habit-title" class="input" required>
+        <label>Description</label>
+        <input type="text" id="edit-habit-desc" class="input">
+        <label>Frequency</label>
+        <select id="edit-habit-frequency" class="input">
+          <option value="daily">Daily</option>
+          <option value="weekly">Weekly</option>
+          <option value="monthly">Monthly</option>
+        </select>
+        <button type="submit" class="btn success">Save Changes</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="toast-container" class="toast-container"></div>
+
+  <footer class="footer">
+    <p>&copy; 2026 Habit Tracker | College Academic Project</p>
+  </footer>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="js/common.js"></script>
+  <script src="js/dashboard.js"></script>
+</body>
+</html>
