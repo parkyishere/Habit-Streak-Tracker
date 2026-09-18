@@ -1,17 +1,18 @@
-const db = require('../config/db');
+const pool = require('../config/db');
 
 // Get All Habits for Logged-In User
-exports.getHabits = (req, res) => {
+exports.getHabits = async (req, res) => {
   const userId = req.user.id;
   try {
-    const habits = db.prepare(`
+    const { rows: habits } = await pool.query(`
       SELECT h.*, 
              COALESCE(s.current_streak, 0) as current_streak, 
              COALESCE(s.longest_streak, 0) as longest_streak 
       FROM habits h 
       LEFT JOIN streaks s ON h.id = s.habit_id 
-      WHERE h.user_id = ?
-    `).all(userId);
+      WHERE h.user_id = $1
+    `, [userId]);
+    
     res.json({ success: true, habits });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -19,7 +20,7 @@ exports.getHabits = (req, res) => {
 };
 
 // Create Habit with Frequency
-exports.createHabit = (req, res) => {
+exports.createHabit = async (req, res) => {
   const { title, description, frequency } = req.body;
   const userId = req.user.id;
 
@@ -29,16 +30,18 @@ exports.createHabit = (req, res) => {
 
   try {
     const freqValue = frequency || 'daily';
-    const stmt = db.prepare(
-      'INSERT INTO habits (user_id, title, description, frequency) VALUES (?, ?, ?, ?)'
+    
+    // RETURNING id gives us the new ID directly in PostgreSQL
+    const { rows: newHabit } = await pool.query(
+      'INSERT INTO habits (user_id, title, description, frequency) VALUES ($1, $2, $3, $4) RETURNING *',
+      [userId, title, description || '', freqValue]
     );
-    const result = stmt.run(userId, title, description || '', freqValue);
-    const habitId = result.lastInsertRowid;
+    
+    const habit = newHabit[0];
 
     // Initialize streak cache record
-    db.prepare('INSERT INTO streaks (user_id, habit_id) VALUES (?, ?)').run(userId, habitId);
+    await pool.query('INSERT INTO streaks (user_id, habit_id) VALUES ($1, $2)', [userId, habit.id]);
 
-    const habit = db.prepare('SELECT * FROM habits WHERE id = ?').get(habitId);
     res.status(201).json({ success: true, habit });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -46,18 +49,18 @@ exports.createHabit = (req, res) => {
 };
 
 // Update Habit Details
-exports.updateHabit = (req, res) => {
+exports.updateHabit = async (req, res) => {
   const { habitId } = req.params;
   const { title, description, frequency } = req.body;
   const userId = req.user.id;
 
   try {
-    const stmt = db.prepare(
-      'UPDATE habits SET title = ?, description = ?, frequency = ? WHERE id = ? AND user_id = ?'
+    const result = await pool.query(
+      'UPDATE habits SET title = $1, description = $2, frequency = $3 WHERE id = $4 AND user_id = $5',
+      [title, description, frequency || 'daily', habitId, userId]
     );
-    const result = stmt.run(title, description, frequency || 'daily', habitId, userId);
 
-    if (result.changes === 0) {
+    if (result.rowCount === 0) {
       return res.status(404).json({ success: false, error: 'Habit not found or unauthorized' });
     }
 
@@ -68,15 +71,14 @@ exports.updateHabit = (req, res) => {
 };
 
 // Delete Habit
-exports.deleteHabit = (req, res) => {
+exports.deleteHabit = async (req, res) => {
   const { habitId } = req.params;
   const userId = req.user.id;
 
   try {
-    const stmt = db.prepare('DELETE FROM habits WHERE id = ? AND user_id = ?');
-    const result = stmt.run(habitId, userId);
+    const result = await pool.query('DELETE FROM habits WHERE id = $1 AND user_id = $2', [habitId, userId]);
 
-    if (result.changes === 0) {
+    if (result.rowCount === 0) {
       return res.status(404).json({ success: false, error: 'Habit not found or unauthorized' });
     }
 
@@ -87,18 +89,20 @@ exports.deleteHabit = (req, res) => {
 };
 
 // Get Habit History for GitHub Grid
-exports.getHabitHistory = (req, res) => {
+exports.getHabitHistory = async (req, res) => {
   const { habitId } = req.params;
   const userId = req.user.id;
 
   try {
-    const habit = db.prepare('SELECT * FROM habits WHERE id = ? AND user_id = ?').get(habitId, userId);
+    const { rows: habitRows } = await pool.query('SELECT * FROM habits WHERE id = $1 AND user_id = $2', [habitId, userId]);
+    const habit = habitRows[0];
+
     if (!habit) {
       return res.status(404).json({ success: false, error: 'Habit not found' });
     }
 
     // Query 'check_ins' table
-    const logs = db.prepare('SELECT check_in_date FROM check_ins WHERE habit_id = ? AND status = 1').all(habitId);
+    const { rows: logs } = await pool.query('SELECT check_in_date FROM check_ins WHERE habit_id = $1 AND status = true', [habitId]);
     const dates = logs.map(log => log.check_in_date);
 
     res.json({ success: true, habit, checkInDates: dates });
@@ -108,26 +112,30 @@ exports.getHabitHistory = (req, res) => {
 };
 
 // Check-in Toggle Handler
-exports.toggleCheckIn = (req, res) => {
+exports.toggleCheckIn = async (req, res) => {
   const { habitId } = req.params;
   const { date } = req.body;
   const userId = req.user.id;
   const checkInDate = date || new Date().toISOString().split('T')[0];
 
   try {
-    const habit = db.prepare('SELECT * FROM habits WHERE id = ? AND user_id = ?').get(habitId, userId);
-    if (!habit) {
+    const { rows: habitRows } = await pool.query('SELECT * FROM habits WHERE id = $1 AND user_id = $2', [habitId, userId]);
+    if (habitRows.length === 0) {
       return res.status(404).json({ success: false, error: 'Habit not found' });
     }
 
     // Query 'check_ins' table
-    const existingLog = db.prepare(
-      'SELECT * FROM check_ins WHERE habit_id = ? AND check_in_date = ?'
-    ).get(habitId, checkInDate);
+    const { rows: existingLogs } = await pool.query(
+      'SELECT * FROM check_ins WHERE habit_id = $1 AND check_in_date = $2',
+      [habitId, checkInDate]
+    );
+    const existingLog = existingLogs[0];
 
-    let streakRecord = db.prepare('SELECT * FROM streaks WHERE habit_id = ?').get(habitId);
+    let { rows: streakRows } = await pool.query('SELECT * FROM streaks WHERE habit_id = $1', [habitId]);
+    let streakRecord = streakRows[0];
+
     if (!streakRecord) {
-      db.prepare('INSERT INTO streaks (user_id, habit_id) VALUES (?, ?)').run(userId, habitId);
+      await pool.query('INSERT INTO streaks (user_id, habit_id) VALUES ($1, $2)', [userId, habitId]);
       streakRecord = { current_streak: 0, longest_streak: 0 };
     }
 
@@ -136,21 +144,21 @@ exports.toggleCheckIn = (req, res) => {
 
     if (existingLog) {
       // Uncheck
-      db.prepare('DELETE FROM check_ins WHERE id = ?').run(existingLog.id);
+      await pool.query('DELETE FROM check_ins WHERE id = $1', [existingLog.id]);
       newStreak = Math.max(0, newStreak - 1);
     } else {
       // Check in
-      db.prepare('INSERT INTO check_ins (habit_id, check_in_date) VALUES (?, ?)').run(habitId, checkInDate);
+      await pool.query('INSERT INTO check_ins (habit_id, check_in_date) VALUES ($1, $2)', [habitId, checkInDate]);
       newStreak += 1;
       newLongest = Math.max(newStreak, newLongest);
     }
 
     // Update streak metrics
-    db.prepare(`
+    await pool.query(`
       UPDATE streaks 
-      SET current_streak = ?, longest_streak = ?, last_check_in_date = ? 
-      WHERE habit_id = ?
-    `).run(newStreak, newLongest, checkInDate, habitId);
+      SET current_streak = $1, longest_streak = $2, last_check_in_date = $3 
+      WHERE habit_id = $4
+    `, [newStreak, newLongest, checkInDate, habitId]);
 
     // Socket notification
     const io = req.app.get('io');

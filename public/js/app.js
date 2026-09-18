@@ -1,3 +1,4 @@
+const API_URL = "https://frill-task-overstuff.ngrok-free.dev"; // Replace with your actual API URL
 // Clean SPA Router
 function navigateTo(pageName) {
   // Protect dashboard if no session token

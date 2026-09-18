@@ -1,11 +1,11 @@
-const db = require('../config/db');
+const pool = require('../config/db');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
 // Define secret constant once
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecretkey123';
 
-exports.register = (req, res) => {
+exports.register = async (req, res) => {
   const { username, email, password } = req.body;
 
   if (!username || !email || !password) {
@@ -14,11 +14,17 @@ exports.register = (req, res) => {
 
   try {
     const hash = bcrypt.hashSync(password, 10);
-    const stmt = db.prepare('INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)');
-    const result = stmt.run(username, email, hash);
+    
+    // RETURNING id gives us the newly generated SERIAL ID directly
+    const { rows } = await pool.query(
+      'INSERT INTO users (username, email, password_hash) VALUES ($1, $2, $3) RETURNING id',
+      [username, email, hash]
+    );
+
+    const newUser = rows[0];
 
     const token = jwt.sign(
-      { id: result.lastInsertRowid, username },
+      { id: newUser.id, username },
       JWT_SECRET,
       { expiresIn: '7d' }
     );
@@ -26,17 +32,18 @@ exports.register = (req, res) => {
     res.status(201).json({
       success: true,
       token,
-      user: { id: result.lastInsertRowid, username, email }
+      user: { id: newUser.id, username, email }
     });
   } catch (err) {
-    if (err.message.includes('UNIQUE constraint failed')) {
+    // Postgres code '23505' represents a unique constraint violation
+    if (err.code === '23505') {
       return res.status(400).json({ success: false, error: 'Username or Email already exists' });
     }
     res.status(500).json({ success: false, error: err.message });
   }
 };
 
-exports.login = (req, res) => {
+exports.login = async (req, res) => {
   const { email, password } = req.body;
 
   if (!email || !password) {
@@ -44,7 +51,9 @@ exports.login = (req, res) => {
   }
 
   try {
-    const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+    const { rows } = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    const user = rows[0];
+
     if (!user) {
       return res.status(400).json({ success: false, error: 'Invalid email or password' });
     }

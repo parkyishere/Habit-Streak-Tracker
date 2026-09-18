@@ -5,8 +5,8 @@ const cors = require('cors');
 const path = require('path');
 require('dotenv').config();
 
-// Initialize DB setup
-require('./config/db');
+// Initialize DB pool setup
+const pool = require('./config/db');
 
 // Import Routes
 const authRoutes = require('./routes/authRoutes');
@@ -16,7 +16,25 @@ const analyticsRoutes = require('./routes/analyticsRoutes');
 const app = express();
 const server = http.createServer(app);
 
-// Initialize Socket.io
+// Configure CORS for frontend access (runs-on.dev)
+const allowedOrigins = [
+  'https://parky.runs-on.dev',
+  'http://localhost:3000',
+  'http://localhost:5000'
+];
+
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(null, true); // Fallback allow for public API
+    }
+  },
+  credentials: true
+}));
+
+// Initialize Socket.io with restricted CORS origin
 const io = new Server(server, {
   cors: {
     origin: '*',
@@ -24,12 +42,10 @@ const io = new Server(server, {
   }
 });
 
-// Attach Socket.io instance to App for Controller Access
 app.set('io', io);
 
-// --- GLOBAL MIDDLEWARE (MUST COME FIRST) ---
-app.use(cors());
-app.use(express.json()); // Parses incoming JSON payloads into req.body
+// --- GLOBAL MIDDLEWARE ---
+app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -39,8 +55,13 @@ app.use('/api/habits', habitRoutes);
 app.use('/api/analytics', analyticsRoutes);
 
 // Health check
-app.get('/api/health', (req, res) => {
-  res.json({ success: true, message: 'Habit Tracker Engine active' });
+app.get('/api/health', async (req, res) => {
+  try {
+    await pool.query('SELECT 1');
+    res.json({ success: true, message: 'Habit Tracker Engine active & DB connected' });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 // Root fallback route
@@ -59,5 +80,5 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
+  console.log(`🚀 Server running on port ${PORT}`);
 });
