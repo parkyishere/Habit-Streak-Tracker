@@ -3,6 +3,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const path = require('path');
+//const terminalLink = require('terminal-link'); //requiredd for terminal link in console logs //disabled for now due to issues with Windows terminal
 require('dotenv').config();
 
 // Initialize DB pool setup
@@ -71,14 +72,14 @@ app.get('/', (req, res) => {
 
 // Socket.io Connection Event
 io.on('connection', (socket) => {
-  console.log(`⚡ Real-time client connected: ${socket.id}`);
+  console.log(`Real-time client connected: ${socket.id}`);
 
   socket.on('disconnect', () => {
-    console.log(`❌ Client disconnected: ${socket.id}`);
+    console.log(`Client disconnected: ${socket.id}`);
   });
 });
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`Server running at http://localhost:${PORT}`);
 });
