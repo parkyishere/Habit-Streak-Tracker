@@ -39,16 +39,51 @@
 
     <div class="card">
       <h3>Create New Habit</h3>
-      <form id="habit-form" class="inline-form">
-        <input type="text" id="habit-title" placeholder="Habit title..." required class="input">
-        <input type="text" id="habit-desc" placeholder="Description..." class="input">
-        <select id="habit-frequency" class="input">
-          <option value="daily">Daily</option>
-          <option value="weekly">Weekly</option>
-          <option value="monthly">Monthly</option>
-        </select>
-        <button type="submit" class="btn success">Add Habit</button>
+      <form id="habit-form" class="habit-create-form">
+        <div class="form-row">
+          <input type="text" id="habit-title" placeholder="Habit title (e.g. Read 20 pages)..." required class="input">
+          <input type="text" id="habit-desc" placeholder="Description (optional)..." class="input">
+          <select id="habit-frequency" class="input">
+            <option value="daily">Daily</option>
+            <option value="specific_days">Specific Days</option>
+            <option value="interval">Interval Cycle</option>
+          </select>
+        </div>
+
+        <!-- Dynamic Weekdays Selector -->
+        <div id="freq-days-container" class="freq-sub-container hidden">
+          <span class="sub-label">Active Days:</span>
+          <div class="weekday-selector">
+            <label class="day-chip"><input type="checkbox" name="habit-days" value="1"> <span>Mon</span></label>
+            <label class="day-chip"><input type="checkbox" name="habit-days" value="2"> <span>Tue</span></label>
+            <label class="day-chip"><input type="checkbox" name="habit-days" value="3"> <span>Wed</span></label>
+            <label class="day-chip"><input type="checkbox" name="habit-days" value="4"> <span>Thu</span></label>
+            <label class="day-chip"><input type="checkbox" name="habit-days" value="5"> <span>Fri</span></label>
+            <label class="day-chip"><input type="checkbox" name="habit-days" value="6"> <span>Sat</span></label>
+            <label class="day-chip"><input type="checkbox" name="habit-days" value="0"> <span>Sun</span></label>
+          </div>
+        </div>
+
+        <!-- Dynamic Interval Selector -->
+        <div id="freq-interval-container" class="freq-sub-container hidden">
+          <span class="sub-label">Repeat Every:</span>
+          <div class="interval-input-group">
+            <span>Every</span>
+            <input type="number" id="habit-interval-days" min="1" max="365" value="2" class="input interval-number">
+            <span>days</span>
+          </div>
+        </div>
+
+        <button type="submit" class="btn success add-habit-btn">Add Habit</button>
       </form>
+    </div>
+
+    <!-- Habits Filter Tabs -->
+    <div class="habits-header-row">
+      <div class="filter-tabs">
+        <button id="tab-due" class="tab-btn active" type="button">Due Today <span id="due-count" class="tab-badge">0</span></button>
+        <button id="tab-all" class="tab-btn" type="button">All Habits <span id="all-count" class="tab-badge">0</span></button>
+      </div>
     </div>
 
     <div id="habits-list" class="habits-grid"></div>
@@ -56,19 +91,13 @@
     <!-- Inline Details & GitHub Calendar Section -->
     <div id="habit-detail-section" class="card hidden">
       <div class="detail-header">
-        <div>
-          <h2 id="detail-title">Habit Details</h2>
-          <span id="detail-frequency" class="badge">daily</span>
-        </div>
+        <h3>Check-in Activity Grid</h3>
         <div class="detail-actions">
           <button id="detail-edit-btn" class="btn secondary">Edit</button>
           <button id="detail-delete-btn" class="btn danger">Delete</button>
           <button id="close-detail-btn" class="btn text-btn">Close</button>
         </div>
       </div>
-      <p id="detail-desc" class="habit-desc"></p>
-      
-      <h3>Check-in Activity Grid</h3>
       <div id="github-calendar" class="calendar-grid"></div>
     </div>
   </div>
@@ -87,10 +116,35 @@
         <label>Frequency</label>
         <select id="edit-habit-frequency" class="input">
           <option value="daily">Daily</option>
-          <option value="weekly">Weekly</option>
-          <option value="monthly">Monthly</option>
+          <option value="specific_days">Specific Days</option>
+          <option value="interval">Interval Cycle</option>
         </select>
-        <button type="submit" class="btn success">Save Changes</button>
+
+        <!-- Edit Dynamic Weekdays Selector -->
+        <div id="edit-freq-days-container" class="freq-sub-container hidden">
+          <span class="sub-label">Active Days:</span>
+          <div class="weekday-selector">
+            <label class="day-chip"><input type="checkbox" name="edit-habit-days" value="1"> <span>Mon</span></label>
+            <label class="day-chip"><input type="checkbox" name="edit-habit-days" value="2"> <span>Tue</span></label>
+            <label class="day-chip"><input type="checkbox" name="edit-habit-days" value="3"> <span>Wed</span></label>
+            <label class="day-chip"><input type="checkbox" name="edit-habit-days" value="4"> <span>Thu</span></label>
+            <label class="day-chip"><input type="checkbox" name="edit-habit-days" value="5"> <span>Fri</span></label>
+            <label class="day-chip"><input type="checkbox" name="edit-habit-days" value="6"> <span>Sat</span></label>
+            <label class="day-chip"><input type="checkbox" name="edit-habit-days" value="0"> <span>Sun</span></label>
+          </div>
+        </div>
+
+        <!-- Edit Dynamic Interval Selector -->
+        <div id="edit-freq-interval-container" class="freq-sub-container hidden">
+          <span class="sub-label">Repeat Every:</span>
+          <div class="interval-input-group">
+            <span>Every</span>
+            <input type="number" id="edit-habit-interval-days" min="1" max="365" value="2" class="input interval-number">
+            <span>days</span>
+          </div>
+        </div>
+
+        <button type="submit" class="btn success full-width">Save Changes</button>
       </form>
     </div>
   </div>

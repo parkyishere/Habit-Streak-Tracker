@@ -1,5 +1,5 @@
 (() => {
- const socket = io("http://localhost:5000");
+  const socket = io("http://localhost:5000");
   const token = localStorage.getItem('token');
 
   if (!token) {
@@ -10,6 +10,10 @@
   const habitsList = document.getElementById('habits-list');
   const editModal = document.getElementById('edit-modal');
   const detailSection = document.getElementById('habit-detail-section');
+
+  // Filter tab state
+  let currentTab = 'due'; // 'due' | 'all'
+  let cachedHabits = [];
 
   function showToast(message) {
     const container = document.getElementById('toast-container');
@@ -49,72 +53,234 @@
 
   async function loadHabits() {
     try {
-      const res = await fetch('/api/habits', {
+      const today = new Date().toISOString().split('T')[0];
+      const res = await fetch(`/api/habits?date=${today}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
 
       if (data.success) {
-        habitsList.innerHTML = '';
-        if (data.habits.length === 0) {
-          habitsList.innerHTML = '<p class="empty-state">No habits created yet. Add one above!</p>';
-          return;
-        }
-
-        data.habits.forEach(habit => {
-          const isCheckedToday = habit.current_streak > 0;
-          const card = document.createElement('div');
-          card.className = 'habit-card';
-          card.innerHTML = `
-            <div class="habit-header">
-              <div class="habit-clickable" data-id="${habit.id}">
-                <h4>${habit.title}</h4>
-                <span class="badge">${habit.frequency || 'daily'}</span>
-              </div>
-              <div class="dropdown">
-                <button class="menu-btn" data-id="${habit.id}">&#8942;</button>
-                <div class="dropdown-content hidden" id="dropdown-${habit.id}">
-                  <button class="edit-btn" data-id="${habit.id}" data-title="${habit.title}" data-desc="${habit.description || ''}" data-freq="${habit.frequency || 'daily'}">Edit</button>
-                  <button class="delete-btn danger-text" data-id="${habit.id}">Delete</button>
-                </div>
-              </div>
-            </div>
-            <p class="habit-desc">${habit.description || 'No description provided'}</p>
-            <div class="streak-badge">Current Streak: ${habit.current_streak || 0} days | Best: ${habit.longest_streak || 0} days</div>
-            <button class="btn ${isCheckedToday ? 'danger' : 'success'} checkin-btn" data-id="${habit.id}">
-              ${isCheckedToday ? 'Uncheck Today' : 'Check In Today'}
-            </button>
-          `;
-
-          habitsList.appendChild(card);
-        });
+        cachedHabits = data.habits || [];
+        renderHabitsList();
       }
     } catch (err) {
       console.error('Failed to load habits:', err);
     }
   }
 
-  function renderCalendar(checkInDates) {
-    const calendarContainer = document.getElementById('github-calendar');
-    calendarContainer.innerHTML = '';
-    const dateSet = new Set(checkInDates);
+  function renderHabitsList() {
+    if (!habitsList) return;
+    habitsList.innerHTML = '';
 
-    const today = new Date();
-    for (let i = 364; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(today.getDate() - i);
-      const dateStr = d.toISOString().split('T')[0];
+    const dueHabits = cachedHabits.filter(h => h.is_due_today);
+    const dueCountEl = document.getElementById('due-count');
+    const allCountEl = document.getElementById('all-count');
 
-      const square = document.createElement('div');
-      square.className = 'calendar-day';
-      square.title = `${dateStr}: ${dateSet.has(dateStr) ? 'Completed' : 'No activity'}`;
+    if (dueCountEl) dueCountEl.innerText = dueHabits.length;
+    if (allCountEl) allCountEl.innerText = cachedHabits.length;
 
-      if (dateSet.has(dateStr)) {
-        square.classList.add('active');
+    const habitsToDisplay = currentTab === 'due' ? dueHabits : cachedHabits;
+
+    if (habitsToDisplay.length === 0) {
+      if (currentTab === 'due') {
+        habitsList.innerHTML = `
+          <div class="empty-state">
+            <h4>🎉 You're all caught up for today!</h4>
+            <p>No habits are scheduled due today. Enjoy your rest day or switch to "All Habits" to see your full schedule.</p>
+          </div>
+        `;
+      } else {
+        habitsList.innerHTML = `
+          <div class="empty-state">
+            <h4>No habits created yet</h4>
+            <p>Use the form above to add your first daily, weekday, or interval habit.</p>
+          </div>
+        `;
+      }
+      return;
+    }
+
+    habitsToDisplay.forEach(habit => {
+      const isCompleted = Boolean(habit.is_completed_today);
+      const isDue = Boolean(habit.is_due_today);
+      const card = document.createElement('div');
+      card.className = `habit-card ${!isDue ? 'off-day' : ''}`;
+
+      const dueBadge = isDue
+        ? `<span class="badge due-today">Due Today</span>`
+        : `<span class="badge rest-day">Rest Day</span>`;
+
+      const freqLabel = habit.frequency_label || habit.frequency || 'Daily';
+
+      let checkinBtnText = 'Check In Today';
+      if (isCompleted) {
+        checkinBtnText = 'Uncheck Today';
+      } else if (!isDue) {
+        checkinBtnText = 'Check In (Rest Day)';
       }
 
-      calendarContainer.appendChild(square);
+      card.innerHTML = `
+        <div class="habit-header">
+          <div class="habit-clickable" data-id="${habit.id}">
+            <h4>${escapeHtml(habit.title)}</h4>
+            <div style="display: flex; gap: 6px; margin-top: 4px; flex-wrap: wrap;">
+              ${dueBadge}
+              <span class="badge frequency-badge">${escapeHtml(freqLabel)}</span>
+            </div>
+          </div>
+          <div class="dropdown">
+            <button class="menu-btn" data-id="${habit.id}" aria-label="Habit options">&#8942;</button>
+            <div class="dropdown-content hidden" id="dropdown-${habit.id}">
+              <button class="edit-btn" data-id="${habit.id}">Edit</button>
+              <button class="delete-btn danger-text" data-id="${habit.id}">Delete</button>
+            </div>
+          </div>
+        </div>
+        <p class="habit-desc">${escapeHtml(habit.description || 'No description provided')}</p>
+        <div class="streak-badge">Current Streak: ${habit.current_streak || 0} days | Best: ${habit.longest_streak || 0} days</div>
+        <button class="btn ${isCompleted ? 'danger' : 'success'} checkin-btn" data-id="${habit.id}">
+          ${checkinBtnText}
+        </button>
+      `;
+
+      habitsList.appendChild(card);
+    });
+  }
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  function isHabitDueOnDate(habit, dateObj) {
+    if (!habit) return true;
+    const freqType = (habit.frequency_type || habit.frequency || 'daily').toLowerCase();
+    let freqValue = habit.frequency_value;
+    if (typeof freqValue === 'string') {
+      try { freqValue = JSON.parse(freqValue); } catch { freqValue = parseInt(freqValue, 10) || freqValue; }
     }
+
+    if (freqType === 'daily') return true;
+
+    if (freqType === 'specific_days') {
+      const days = Array.isArray(freqValue) ? freqValue : [];
+      const dayMap = { sunday: 0, monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6, sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 };
+      const normalizedDays = days.map(d => typeof d === 'string' ? (dayMap[d.toLowerCase()] ?? parseInt(d, 10)) : Number(d));
+      return normalizedDays.includes(dateObj.getDay());
+    }
+
+    if (freqType === 'interval') {
+      let interval = 1;
+      if (typeof freqValue === 'number') interval = freqValue;
+      else if (freqValue && typeof freqValue === 'object') interval = freqValue.interval_days || freqValue.interval || 1;
+      if (interval <= 1) return true;
+
+      const anchor = new Date(habit.created_at || dateObj);
+      anchor.setHours(0, 0, 0, 0);
+      const target = new Date(dateObj);
+      target.setHours(0, 0, 0, 0);
+      const diffDays = Math.round((target - anchor) / (1000 * 60 * 60 * 24));
+      if (diffDays < 0) return false;
+      return diffDays % interval === 0;
+    }
+
+    return true;
+  }
+
+  function renderCalendar(checkInDates, habit = null) {
+    const calendarContainer = document.getElementById('github-calendar');
+    if (!calendarContainer) return;
+    calendarContainer.innerHTML = '';
+
+    const dateSet = new Set();
+    if (checkInDates) {
+      checkInDates.forEach(d => {
+        const s = typeof d === 'string' ? d.split('T')[0] : new Date(d).toISOString().split('T')[0];
+        dateSet.add(s);
+      });
+    }
+
+    const today = new Date();
+    const months = [];
+    for (let m = 11; m >= 0; m--) {
+      months.push(new Date(today.getFullYear(), today.getMonth() - m, 1));
+    }
+
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const dayLabels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'heatmap-months-wrapper';
+
+    months.forEach(monthDate => {
+      const year = monthDate.getFullYear();
+      const monthIndex = monthDate.getMonth();
+
+      const monthBlock = document.createElement('div');
+      monthBlock.className = 'heatmap-month-block';
+
+      const monthTitle = document.createElement('div');
+      monthTitle.className = 'heatmap-month-title';
+      monthTitle.innerText = `${monthNames[monthIndex]} ${year}`;
+      monthBlock.appendChild(monthTitle);
+
+      const daysHeader = document.createElement('div');
+      daysHeader.className = 'heatmap-days-header';
+      dayLabels.forEach(lbl => {
+        const span = document.createElement('span');
+        span.innerText = lbl;
+        daysHeader.appendChild(span);
+      });
+      monthBlock.appendChild(daysHeader);
+
+      const daysGrid = document.createElement('div');
+      daysGrid.className = 'heatmap-days-grid';
+
+      const firstDay = new Date(year, monthIndex, 1).getDay();
+      for (let pad = 0; pad < firstDay; pad++) {
+        const padCell = document.createElement('div');
+        padCell.className = 'calendar-day empty-cell';
+        daysGrid.appendChild(padCell);
+      }
+
+      const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+      for (let dayNum = 1; dayNum <= daysInMonth; dayNum++) {
+        const d = new Date(year, monthIndex, dayNum);
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        const dateStr = `${yyyy}-${mm}-${dd}`;
+
+        const square = document.createElement('div');
+        square.className = 'calendar-day';
+        square.setAttribute('data-date', dateStr);
+
+        const isCompleted = dateSet.has(dateStr);
+        const isDue = isHabitDueOnDate(habit, d);
+
+        if (isCompleted) {
+          square.classList.add('active');
+          square.title = `${dateStr}: Completed`;
+        } else if (!isDue) {
+          square.classList.add('rest-day');
+          square.title = `${dateStr}: Rest day`;
+        } else {
+          square.title = `${dateStr}: No activity`;
+        }
+
+        daysGrid.appendChild(square);
+      }
+
+      monthBlock.appendChild(daysGrid);
+      wrapper.appendChild(monthBlock);
+    });
+
+    calendarContainer.appendChild(wrapper);
   }
 
   async function openInlineHistory(habitId) {
@@ -125,20 +291,9 @@
       const data = await res.json();
 
       if (data.success) {
-        document.getElementById('detail-title').innerText = data.habit.title;
-        document.getElementById('detail-desc').innerText = data.habit.description || 'No description provided';
-        document.getElementById('detail-frequency').innerText = data.habit.frequency || 'daily';
+        renderCalendar(data.checkInDates, data.habit);
 
-        renderCalendar(data.checkInDates);
-
-        document.getElementById('detail-edit-btn').onclick = () => {
-          document.getElementById('edit-habit-id').value = data.habit.id;
-          document.getElementById('edit-habit-title').value = data.habit.title;
-          document.getElementById('edit-habit-desc').value = data.habit.description || '';
-          document.getElementById('edit-habit-frequency').value = data.habit.frequency || 'daily';
-          editModal.classList.remove('hidden');
-        };
-
+        document.getElementById('detail-edit-btn').onclick = () => openEditModal(data.habit);
         document.getElementById('detail-delete-btn').onclick = () => deleteHabit(data.habit.id);
 
         detailSection.setAttribute('data-active-id', habitId);
@@ -150,16 +305,57 @@
     }
   }
 
+  function openEditModal(habit) {
+    document.getElementById('edit-habit-id').value = habit.id;
+    document.getElementById('edit-habit-title').value = habit.title;
+    document.getElementById('edit-habit-desc').value = habit.description || '';
+
+    const freqType = habit.frequency_type || habit.frequency || 'daily';
+    const freqSelect = document.getElementById('edit-habit-frequency');
+    freqSelect.value = freqType;
+
+    // Reset edit day chips
+    document.querySelectorAll('input[name="edit-habit-days"]').forEach(cb => {
+      cb.checked = false;
+    });
+
+    const daysContainer = document.getElementById('edit-freq-days-container');
+    const intervalContainer = document.getElementById('edit-freq-interval-container');
+
+    if (freqType === 'specific_days') {
+      daysContainer.classList.remove('hidden');
+      intervalContainer.classList.add('hidden');
+      const val = Array.isArray(habit.frequency_value) ? habit.frequency_value : [];
+      val.forEach(d => {
+        const cb = document.querySelector(`input[name="edit-habit-days"][value="${d}"]`);
+        if (cb) cb.checked = true;
+      });
+    } else if (freqType === 'interval') {
+      daysContainer.classList.add('hidden');
+      intervalContainer.classList.remove('hidden');
+      let intervalVal = 2;
+      if (typeof habit.frequency_value === 'number') {
+        intervalVal = habit.frequency_value;
+      } else if (habit.frequency_value && typeof habit.frequency_value === 'object') {
+        intervalVal = habit.frequency_value.interval_days || habit.frequency_value.interval || 2;
+      }
+      document.getElementById('edit-habit-interval-days').value = intervalVal;
+    } else {
+      daysContainer.classList.add('hidden');
+      intervalContainer.classList.add('hidden');
+    }
+
+    editModal.classList.remove('hidden');
+  }
+
   async function checkIn(habitId) {
     try {
-      const today = new Date().toISOString().split('T')[0];
       const res = await fetch(`/api/habits/${habitId}/checkin`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ date: today })
+        }
       });
 
       const data = await res.json();
@@ -173,6 +369,7 @@
           openInlineHistory(habitId);
         }
       } else {
+        showToast(data.error || 'Check-in failed');
         console.error('Check-in failed:', data.error);
       }
     } catch (err) {
@@ -198,6 +395,29 @@
     }
   }
 
+  // --- Dynamic Frequency Form Listeners ---
+  function setupFrequencySelectToggle(selectId, daysContainerId, intervalContainerId) {
+    const selectEl = document.getElementById(selectId);
+    const daysEl = document.getElementById(daysContainerId);
+    const intervalEl = document.getElementById(intervalContainerId);
+    if (!selectEl || !daysEl || !intervalEl) return;
+
+    selectEl.addEventListener('change', () => {
+      const val = selectEl.value;
+      if (val === 'specific_days') {
+        daysEl.classList.remove('hidden');
+        intervalEl.classList.add('hidden');
+      } else if (val === 'interval') {
+        intervalEl.classList.remove('hidden');
+        daysEl.classList.add('hidden');
+      } else {
+        daysEl.classList.add('hidden');
+        intervalEl.classList.add('hidden');
+      }
+    });
+  }
+
+  // --- Global Event Delegation ---
   document.addEventListener('click', (e) => {
     const target = e.target;
 
@@ -207,7 +427,7 @@
       document.querySelectorAll('.dropdown-content').forEach(d => {
         if (d !== dropdown) d.classList.add('hidden');
       });
-      dropdown.classList.toggle('hidden');
+      if (dropdown) dropdown.classList.toggle('hidden');
       return;
     }
 
@@ -234,95 +454,172 @@
     }
 
     if (target.classList.contains('edit-btn')) {
-      document.getElementById('edit-habit-id').value = target.getAttribute('data-id');
-      document.getElementById('edit-habit-title').value = target.getAttribute('data-title');
-      document.getElementById('edit-habit-desc').value = target.getAttribute('data-desc');
-      document.getElementById('edit-habit-frequency').value = target.getAttribute('data-freq');
-      editModal.classList.remove('hidden');
+      const id = target.getAttribute('data-id');
+      const habit = cachedHabits.find(h => String(h.id) === String(id));
+      if (habit) {
+        openEditModal(habit);
+      }
     }
   });
 
   document.getElementById('close-detail-btn').addEventListener('click', () => detailSection.classList.add('hidden'));
   document.getElementById('close-edit').addEventListener('click', () => editModal.classList.add('hidden'));
 
+  // --- Initial Setup on DOM Ready ---
   document.addEventListener('DOMContentLoaded', () => {
     loadStats();
     loadHabits();
 
-    document.getElementById('habit-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const title = document.getElementById('habit-title').value.trim();
-      const description = document.getElementById('habit-desc').value.trim();
-      const frequency = document.getElementById('habit-frequency').value;
+    // Toggle controls for create form and edit modal
+    setupFrequencySelectToggle('habit-frequency', 'freq-days-container', 'freq-interval-container');
+    setupFrequencySelectToggle('edit-habit-frequency', 'edit-freq-days-container', 'edit-freq-interval-container');
 
-      try {
-        const res = await fetch('/api/habits', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
-          },
-          body: JSON.stringify({ title, description, frequency })
-        });
+    // Tab buttons
+    const tabDue = document.getElementById('tab-due');
+    const tabAll = document.getElementById('tab-all');
 
-        const data = await res.json();
-        if (data.success) {
-          document.getElementById('habit-title').value = '';
-          document.getElementById('habit-desc').value = '';
-          await loadHabits();
-          await loadStats();
+    if (tabDue && tabAll) {
+      tabDue.addEventListener('click', () => {
+        currentTab = 'due';
+        tabDue.classList.add('active');
+        tabAll.classList.remove('active');
+        renderHabitsList();
+      });
+
+      tabAll.addEventListener('click', () => {
+        currentTab = 'all';
+        tabAll.classList.add('active');
+        tabDue.classList.remove('active');
+        renderHabitsList();
+      });
+    }
+
+    // Create Habit Form Handler
+    const habitForm = document.getElementById('habit-form');
+    if (habitForm) {
+      habitForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const title = document.getElementById('habit-title').value.trim();
+        const description = document.getElementById('habit-desc').value.trim();
+        const frequencyType = document.getElementById('habit-frequency').value;
+
+        let frequencyValue = [];
+        if (frequencyType === 'specific_days') {
+          const checkedDays = Array.from(document.querySelectorAll('input[name="habit-days"]:checked'))
+            .map(cb => parseInt(cb.value, 10));
+          if (checkedDays.length === 0) {
+            alert('Please select at least one active day of the week.');
+            return;
+          }
+          frequencyValue = checkedDays;
+        } else if (frequencyType === 'interval') {
+          const intervalDays = parseInt(document.getElementById('habit-interval-days').value, 10);
+          if (isNaN(intervalDays) || intervalDays < 1) {
+            alert('Please enter a valid interval in days (minimum 1).');
+            return;
+          }
+          frequencyValue = intervalDays;
         }
-      } catch (err) {
-        console.error('Error adding habit:', err);
-      }
-    });
 
-    document.addEventListener('DOMContentLoaded', () => {
-  loadStats();
-  loadHabits();
+        try {
+          const res = await fetch('/api/habits', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              title,
+              description,
+              frequency_type: frequencyType,
+              frequency_value: frequencyValue
+            })
+          });
 
-  const habitForm = document.getElementById('habit-form');
-  if (habitForm) {
-    habitForm.addEventListener('submit', async (e) => {
-      e.preventDefault(); // Stop default form refresh
-      
-      const titleInput = document.getElementById('habit-title');
-      const descInput = document.getElementById('habit-desc');
-      const freqInput = document.getElementById('habit-frequency');
+          const data = await res.json();
+          if (res.ok && data.success) {
+            // Reset form
+            document.getElementById('habit-title').value = '';
+            document.getElementById('habit-desc').value = '';
+            document.getElementById('habit-frequency').value = 'daily';
+            document.getElementById('freq-days-container').classList.add('hidden');
+            document.getElementById('freq-interval-container').classList.add('hidden');
+            document.querySelectorAll('input[name="habit-days"]').forEach(cb => cb.checked = false);
 
-      const title = titleInput ? titleInput.value.trim() : '';
-      const description = descInput ? descInput.value.trim() : '';
-      const frequency = freqInput ? freqInput.value : 'daily';
-
-      if (!title) {
-        alert('Please enter a habit title');
-        return;
-      }
-
-      try {
-        const res = await fetch(`${API_URL}/api/habits`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
-          },
-          body: JSON.stringify({ title, description, frequency })
-        });
-
-        const data = await res.json();
-        if (res.ok && data.success) {
-          if (titleInput) titleInput.value = '';
-          if (descInput) descInput.value = '';
-          await loadHabits();
-          await loadStats();
-        } else {
-          console.error('Failed to create habit:', data.error);
+            await loadHabits();
+            await loadStats();
+            showToast(`Habit "${title}" created successfully!`);
+          } else {
+            alert(data.error || 'Failed to create habit');
+          }
+        } catch (err) {
+          console.error('Error adding habit:', err);
         }
-      } catch (err) {
-        console.error('Error adding habit:', err);
-      }
-    });
-  }
-});
+      });
+    }
+
+    // Edit Habit Form Handler
+    const editHabitForm = document.getElementById('edit-habit-form');
+    if (editHabitForm) {
+      editHabitForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const habitId = document.getElementById('edit-habit-id').value;
+        const title = document.getElementById('edit-habit-title').value.trim();
+        const description = document.getElementById('edit-habit-desc').value.trim();
+        const frequencyType = document.getElementById('edit-habit-frequency').value;
+
+        let frequencyValue = [];
+        if (frequencyType === 'specific_days') {
+          const checkedDays = Array.from(document.querySelectorAll('input[name="edit-habit-days"]:checked'))
+            .map(cb => parseInt(cb.value, 10));
+          if (checkedDays.length === 0) {
+            alert('Please select at least one active day of the week.');
+            return;
+          }
+          frequencyValue = checkedDays;
+        } else if (frequencyType === 'interval') {
+          const intervalDays = parseInt(document.getElementById('edit-habit-interval-days').value, 10);
+          if (isNaN(intervalDays) || intervalDays < 1) {
+            alert('Please enter a valid interval in days (minimum 1).');
+            return;
+          }
+          frequencyValue = intervalDays;
+        }
+
+        try {
+          const res = await fetch(`/api/habits/${habitId}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              title,
+              description,
+              frequency_type: frequencyType,
+              frequency_value: frequencyValue
+            })
+          });
+
+          const data = await res.json();
+          if (res.ok && data.success) {
+            editModal.classList.add('hidden');
+            await loadHabits();
+            await loadStats();
+
+            // Refresh active details view if it matches this habit
+            const activeId = detailSection.getAttribute('data-active-id');
+            if (!detailSection.classList.contains('hidden') && activeId == habitId) {
+              openInlineHistory(habitId);
+            }
+            showToast(`Habit updated successfully!`);
+          } else {
+            alert(data.error || 'Failed to update habit');
+          }
+        } catch (err) {
+          console.error('Error updating habit:', err);
+        }
+      });
+    }
   });
 })();

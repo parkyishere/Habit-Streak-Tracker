@@ -31,6 +31,8 @@ const initDatabase = async () => {
         title VARCHAR(255) NOT NULL,
         description TEXT,
         frequency VARCHAR(50) DEFAULT 'daily',
+        frequency_type VARCHAR(50) DEFAULT 'daily',
+        frequency_value JSONB DEFAULT '[]'::jsonb,
         target_per_week INT DEFAULT 7,
         is_archived BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -57,9 +59,11 @@ const initDatabase = async () => {
       );
     `);
 
-    // Ensure frequency column exists for older schema instances
+    // Ensure frequency columns exist for older schema instances
     await pool.query(`
       ALTER TABLE habits ADD COLUMN IF NOT EXISTS frequency VARCHAR(50) DEFAULT 'daily';
+      ALTER TABLE habits ADD COLUMN IF NOT EXISTS frequency_type VARCHAR(50) DEFAULT 'daily';
+      ALTER TABLE habits ADD COLUMN IF NOT EXISTS frequency_value JSONB DEFAULT '[]'::jsonb;
     `);
 
     // Seed default categories if empty
