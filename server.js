@@ -35,10 +35,10 @@ app.use(cors({
 }));
 
 // Initialize Socket.io with restricted CORS origin
-const io = new Server(server, {
+const io = require('socket.io')(server, {
   cors: {
-    origin: '*',
-    methods: ['GET', 'POST']
+    origin: "*", // Or your exact frontend local URL like "http://localhost:3000"
+    methods: ["GET", "POST"]
   }
 });
 

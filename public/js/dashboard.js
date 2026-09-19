@@ -1,5 +1,5 @@
 (() => {
-  const socket = io();
+ const socket = io("http://localhost:5000");
   const token = localStorage.getItem('token');
 
   if (!token) {
@@ -277,16 +277,31 @@
       }
     });
 
-    document.getElementById('edit-habit-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const id = document.getElementById('edit-habit-id').value;
-      const title = document.getElementById('edit-habit-title').value.trim();
-      const description = document.getElementById('edit-habit-desc').value.trim();
-      const frequency = document.getElementById('edit-habit-frequency').value;
+    document.addEventListener('DOMContentLoaded', () => {
+  loadStats();
+  loadHabits();
+
+  const habitForm = document.getElementById('habit-form');
+  if (habitForm) {
+    habitForm.addEventListener('submit', async (e) => {
+      e.preventDefault(); // Stop default form refresh
+      
+      const titleInput = document.getElementById('habit-title');
+      const descInput = document.getElementById('habit-desc');
+      const freqInput = document.getElementById('habit-frequency');
+
+      const title = titleInput ? titleInput.value.trim() : '';
+      const description = descInput ? descInput.value.trim() : '';
+      const frequency = freqInput ? freqInput.value : 'daily';
+
+      if (!title) {
+        alert('Please enter a habit title');
+        return;
+      }
 
       try {
-        const res = await fetch(`/api/habits/${id}`, {
-          method: 'PUT',
+        const res = await fetch(`${API_URL}/api/habits`, {
+          method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${token}`
@@ -295,16 +310,19 @@
         });
 
         const data = await res.json();
-        if (data.success) {
-          editModal.classList.add('hidden');
+        if (res.ok && data.success) {
+          if (titleInput) titleInput.value = '';
+          if (descInput) descInput.value = '';
           await loadHabits();
-          if (!detailSection.classList.contains('hidden')) {
-            openInlineHistory(id);
-          }
+          await loadStats();
+        } else {
+          console.error('Failed to create habit:', data.error);
         }
       } catch (err) {
-        console.error('Error updating habit:', err);
+        console.error('Error adding habit:', err);
       }
     });
+  }
+});
   });
 })();
