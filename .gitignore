@@ -1,4 +1,7 @@
 node_modules/
 database.sqlite
 .env
+cloudflared.exenode_modules/
 cloudflared.exe
+config.yml
+site.zip
