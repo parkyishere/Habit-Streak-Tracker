@@ -32,16 +32,30 @@ body { background-color: #f4f6f9; color: #333; display: flex; flex-direction: co
 
 /* Dashboard Header & Stats */
 .header { margin-bottom: 20px; }
-.stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 20px; }
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 15px; margin-bottom: 20px; }
 .stat-card { background: white; padding: 18px; border-radius: 8px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
 .stat-card p { font-size: 1.6rem; font-weight: bold; color: #2563eb; margin-top: 5px; }
 
-/* Habits List */
-.habits-grid { display: flex; flex-direction: column; gap: 15px; }
-.habit-card { background: white; padding: 18px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+/* Habits List & Desktop Viewport Consistency */
+.habits-grid { display: flex; flex-direction: column; gap: 16px; }
+.habit-card { 
+  background: #ffffff; 
+  padding: 20px; 
+  border-radius: 10px; 
+  display: flex; 
+  flex-direction: column; 
+  gap: 12px; 
+  box-shadow: 0 2px 5px rgba(0,0,0,0.04); 
+  border: 1px solid #e2e8f0;
+  transition: all 0.2s ease;
+}
+.habit-card:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.07);
+  border-color: #cbd5e1;
+}
 .habit-info h4 { margin-bottom: 5px; font-size: 1.1rem; }
 .habit-info p { color: #666; font-size: 0.9rem; }
-.streak-badge { font-weight: bold; color: #d97706; margin-top: 5px; }
+.streak-badge { font-weight: 600; color: #d97706; font-size: 0.9rem; }
 
 /* Footer */
 .footer { background: #0f172a; color: #94a3b8; text-align: center; padding: 15px; margin-top: auto; font-size: 0.85rem; }
@@ -508,14 +522,463 @@ body { background-color: #f4f6f9; color: #333; display: flex; flex-direction: co
 
 /* Calendar Days Clickable */
 .calendar-day.active,
-.calendar-day.missed {
+.calendar-day.missed,
+.calendar-day.today-cell:not(.rest-day):not(.pre-creation) {
   cursor: pointer;
   transition: transform 0.1s ease, filter 0.1s ease;
 }
 
 .calendar-day.active:hover,
-.calendar-day.missed:hover {
+.calendar-day.missed:hover,
+.calendar-day.today-cell:not(.rest-day):not(.pre-creation):hover {
   filter: brightness(1.1);
   transform: scale(1.12);
 }
+
+.calendar-day.today-cell {
+  outline: 1.5px solid #6366f1;
+  outline-offset: -1.5px;
+}
+
+/* Exponential Habit Scoring & Strength Meter */
+.habit-score-container {
+  margin: 10px 0 12px 0;
+  padding: 10px 12px;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.score-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  font-size: 0.85rem;
+}
+
+.score-label {
+  color: #475569;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.score-num {
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.score-tier-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  transition: all 0.2s ease;
+}
+
+.score-progress-track {
+  width: 100%;
+  height: 7px;
+  background: #e2e8f0;
+  border-radius: 10px;
+  overflow: hidden;
+  position: relative;
+}
+
+.score-progress-fill {
+  height: 100%;
+  border-radius: 10px;
+  transition: width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  position: relative;
+}
+
+/* Tiers: Mastered (>=80%) */
+.score-tier-badge.tier-mastered {
+  background: #d1fae5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+.score-progress-fill.tier-mastered {
+  background: linear-gradient(90deg, #10b981, #059669);
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.4);
+}
+
+/* Tiers: Strong (50-79%) */
+.score-tier-badge.tier-strong {
+  background: #dbeafe;
+  color: #1e40af;
+  border: 1px solid #bfdbfe;
+}
+.score-progress-fill.tier-strong {
+  background: linear-gradient(90deg, #3b82f6, #6366f1);
+  box-shadow: 0 0 8px rgba(59, 130, 246, 0.35);
+}
+
+/* Tiers: Building (25-49%) */
+.score-tier-badge.tier-building {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+.score-progress-fill.tier-building {
+  background: linear-gradient(90deg, #f59e0b, #d97706);
+}
+
+/* Tiers: Starting (<25%) */
+.score-tier-badge.tier-starting {
+  background: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+}
+.score-progress-fill.tier-starting {
+  background: linear-gradient(90deg, #94a3b8, #64748b);
+}
+
+/* Flexible Weekly Targets Experimental Styling */
+.badge.weekly-target-badge {
+  background: #fdf2f8;
+  color: #9d174d;
+  border: 1px solid #fbcfe8;
+  font-weight: 600;
+}
+
+.weekly-progress-box {
+  margin: 8px 0 10px 0;
+  padding: 8px 12px;
+  background: #faf5ff;
+  border-radius: 6px;
+  border: 1px solid #e9d5ff;
+}
+
+.weekly-progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.83rem;
+  margin-bottom: 5px;
+}
+
+.weekly-progress-label {
+  color: #6b21a8;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.weekly-progress-count {
+  font-weight: 700;
+  color: #581c87;
+}
+
+.weekly-progress-track {
+  width: 100%;
+  height: 6px;
+  background: #f3e8ff;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.weekly-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #a855f7, #7e22ce);
+  border-radius: 6px;
+  transition: width 0.4s ease;
+}
+
+.weekly-goal-met-badge {
+  background: #dcfce7;
+  color: #15803d;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 10px;
+  border: 1px solid #86efac;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+/* UI Consistency: Header, Dropdown & Alignment */
+.habit-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.habit-clickable {
+  cursor: pointer;
+  flex: 1;
+}
+
+.habit-clickable h4 {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 6px;
+  transition: color 0.15s;
+}
+
+.habit-clickable:hover h4 {
+  color: #4f46e5;
+}
+
+.habit-desc {
+  color: #64748b;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.dropdown {
+  position: relative;
+}
+
+.menu-btn {
+  background: transparent;
+  border: none;
+  font-size: 1.35rem;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 2px 8px;
+  border-radius: 4px;
+  line-height: 1;
+  transition: background 0.15s, color 0.15s;
+}
+
+.menu-btn:hover {
+  background: #f1f5f9;
+  color: #334155;
+}
+
+.dropdown-content {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  background: #ffffff;
+  min-width: 120px;
+  border-radius: 6px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+  border: 1px solid #e2e8f0;
+  padding: 4px 0;
+  z-index: 50;
+}
+
+.dropdown-content button {
+  width: 100%;
+  padding: 8px 14px;
+  text-align: left;
+  background: transparent;
+  border: none;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #334155;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.dropdown-content button:hover {
+  background: #f8fafc;
+}
+
+.dropdown-content button.danger-text {
+  color: #ef4444;
+}
+
+.dropdown-content button.danger-text:hover {
+  background: #fef2f2;
+}
+
+/* Habit Card Actions Alignment */
+.habit-card .btn.checkin-btn,
+.habit-card .btn.rest-day-btn {
+  width: 100%;
+  padding: 10px 16px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  border-radius: 6px;
+  text-align: center;
+  justify-content: center;
+}
+
+/* Multiple Check-Ins per Day (Quantifiable Targets) Styling */
+.quant-form-row {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  background: #f8fafc;
+  padding: 10px 14px;
+  border-radius: 6px;
+  border: 1px dashed #cbd5e1;
+  flex-wrap: wrap;
+}
+
+.quant-input-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+}
+
+.quant-input-group .sub-label {
+  margin-bottom: 0;
+  white-space: nowrap;
+}
+
+.quant-input-group .input {
+  margin: 0 !important;
+}
+
+.quant-input-group .interval-number {
+  width: 80px !important;
+  text-align: center;
+}
+
+.quant-unit-input {
+  width: 160px !important;
+}
+
+.sub-label-helper {
+  color: #64748b;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.badge.quant-badge {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+  font-weight: 600;
+}
+
+.quant-progress-box {
+  margin: 6px 0 8px 0;
+  padding: 8px 12px;
+  background: #f0fdf4;
+  border-radius: 6px;
+  border: 1px solid #bbf7d0;
+}
+
+.quant-progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.83rem;
+  margin-bottom: 5px;
+}
+
+.quant-progress-label {
+  color: #15803d;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.quant-progress-count {
+  font-weight: 700;
+  color: #166534;
+}
+
+.quant-progress-track {
+  width: 100%;
+  height: 6px;
+  background: #dcfce7;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.quant-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #10b981, #059669);
+  border-radius: 6px;
+  transition: width 0.4s ease;
+}
+
+.quant-progress-fill.completed {
+  background: linear-gradient(90deg, #10b981, #047857);
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.4);
+}
+
+.quant-goal-met-badge {
+  background: #15803d;
+  color: #ffffff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 8px;
+}
+
+.quant-action-group {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+}
+
+.quant-inc-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 16px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  border-radius: 6px;
+}
+
+.quant-dec-btn {
+  width: 44px;
+  height: 42px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  font-weight: bold;
+  border-radius: 6px;
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.quant-dec-btn:hover:not(:disabled) {
+  background: #e2e8f0;
+  color: #1e293b;
+}
+
+.quant-dec-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.quant-reset-btn {
+  padding: 8px 12px;
+  font-size: 0.82rem;
+  color: #64748b;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: color 0.15s;
+}
+
+.quant-reset-btn:hover:not(:disabled) {
+  color: #ef4444;
+}
+
+.quant-reset-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+
 

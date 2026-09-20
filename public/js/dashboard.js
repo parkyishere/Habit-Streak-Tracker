@@ -14,6 +14,46 @@
   // Filter tab state
   let currentTab = 'due'; // 'due' | 'all'
   let cachedHabits = [];
+  let appFeatures = { EXPERIMENT_WEEKLY_TARGETS: false };
+
+  async function loadFeatures() {
+    try {
+      const res = await fetch('/api/features');
+      const data = await res.json();
+      if (data.success && data.features) {
+        appFeatures = data.features;
+      }
+    } catch (err) {
+      console.warn('Could not load feature flags:', err);
+    }
+    applyFeatureToggles();
+  }
+
+  function applyFeatureToggles() {
+    const selects = ['habit-frequency', 'edit-habit-frequency'];
+    selects.forEach(id => {
+      const selectEl = document.getElementById(id);
+      if (!selectEl) return;
+      let opt = selectEl.querySelector('option[value="weekly_target"]');
+      if (appFeatures.EXPERIMENT_WEEKLY_TARGETS) {
+        if (!opt) {
+          opt = document.createElement('option');
+          opt.value = 'weekly_target';
+          opt.innerText = 'Flexible Weekly Target (X/week)';
+          selectEl.appendChild(opt);
+        }
+      } else {
+        if (opt) opt.remove();
+      }
+    });
+
+    // Quantifiable Habits feature toggle
+    const isQuant = Boolean(appFeatures.EXPERIMENT_QUANTIFIABLE_HABITS);
+    const quantCreateRow = document.getElementById('quant-create-row');
+    const editQuantRow = document.getElementById('edit-quant-row');
+    if (quantCreateRow) quantCreateRow.classList.toggle('hidden', !isQuant);
+    if (editQuantRow) editQuantRow.classList.toggle('hidden', !isQuant);
+  }
 
   function showToast(message) {
     const container = document.getElementById('toast-container');
@@ -31,8 +71,18 @@
     }, 3500);
   }
 
+  function getScoreTierInfo(score) {
+    const s = Number(score) || 0;
+    if (s >= 80) return { tierClass: 'tier-mastered', label: 'Mastered' };
+    if (s >= 50) return { tierClass: 'tier-strong', label: 'Strong' };
+    if (s >= 25) return { tierClass: 'tier-building', label: 'Building' };
+    return { tierClass: 'tier-starting', label: 'Starting' };
+  }
+
   socket.on('activity_feed', (data) => {
-    showToast(`${data.username} ${data.action} habit! Current streak: ${data.streak} days`);
+    const streakText = data.streak !== undefined ? ` Streak: ${data.streak}d.` : '';
+    const scoreText = data.score !== undefined ? ` Strength: ${Number(data.score).toFixed(1)}%.` : '';
+    showToast(`${data.username} ${data.action} habit!${streakText}${scoreText}`);
   });
 
   async function loadStats() {
@@ -45,6 +95,10 @@
         document.getElementById('stat-habits').innerText = data.stats.totalHabits;
         document.getElementById('stat-checkins').innerText = data.stats.totalCheckIns;
         document.getElementById('stat-max-streak').innerText = `${data.stats.maxStreak} days`;
+        const avgScoreEl = document.getElementById('stat-avg-score');
+        if (avgScoreEl) {
+          avgScoreEl.innerText = `${(data.stats.avgScore || 0).toFixed(1)}%`;
+        }
       }
     } catch (err) {
       console.error('Failed to load stats:', err);
@@ -54,10 +108,16 @@
   function getLocalDateStr(dateInput = new Date()) {
     if (!dateInput) return '';
     if (typeof dateInput === 'string') {
-      const match = dateInput.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      const match = dateInput.trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
       if (match) {
         return `${match[1]}-${match[2]}-${match[3]}`;
       }
+    }
+    if (dateInput instanceof Date) {
+      const year = dateInput.getFullYear();
+      const month = String(dateInput.getMonth() + 1).padStart(2, '0');
+      const day = String(dateInput.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
     }
     const d = new Date(dateInput);
     if (isNaN(d.getTime())) return '';
@@ -67,20 +127,21 @@
     return `${year}-${month}-${day}`;
   }
 
-  function parseLocalDate(dateStr) {
-    if (!dateStr) return new Date();
-    if (dateStr instanceof Date) {
-      const d = new Date(dateStr);
-      d.setHours(0, 0, 0, 0);
-      return d;
+  function parseLocalDate(dateInput) {
+    if (!dateInput) return new Date();
+    if (dateInput instanceof Date) {
+      return new Date(dateInput.getFullYear(), dateInput.getMonth(), dateInput.getDate(), 0, 0, 0, 0);
     }
-    const match = String(dateStr).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    const match = String(dateInput).trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
     if (match) {
       return new Date(parseInt(match[1], 10), parseInt(match[2], 10) - 1, parseInt(match[3], 10), 0, 0, 0, 0);
     }
-    const d = new Date(dateStr);
-    d.setHours(0, 0, 0, 0);
-    return d;
+    const d = new Date(dateInput);
+    if (isNaN(d.getTime())) {
+      const now = new Date();
+      return new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    }
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
   }
 
   async function loadHabits() {
@@ -135,24 +196,97 @@
     habitsToDisplay.forEach(habit => {
       const isCompleted = Boolean(habit.is_completed_today);
       const isDue = Boolean(habit.is_due_today);
+      const isWeekly = habit.frequency_type === 'weekly_target';
+      const isQuant = Boolean(appFeatures.EXPERIMENT_QUANTIFIABLE_HABITS) && (habit.target_per_day > 1);
+      const todayCount = isQuant ? (habit.today_count || 0) : (isCompleted ? 1 : 0);
+      const targetPerDay = isQuant ? habit.target_per_day : 1;
+      const unitStr = isQuant && habit.unit ? habit.unit : '';
+
       const card = document.createElement('div');
-      card.className = `habit-card ${!isDue ? 'off-day' : ''}`;
+      card.className = `habit-card ${!isDue && !isWeekly ? 'off-day' : ''}`;
       card.setAttribute('data-habit-id', habit.id);
 
-      const dueBadge = isDue
-        ? `<span class="badge due-today">Due Today</span>`
-        : `<span class="badge rest-day">Rest Day</span>`;
+      let dueBadge = '';
+      if (isDue) {
+        dueBadge = `<span class="badge due-today">Due Today</span>`;
+      } else if (isWeekly) {
+        dueBadge = `<span class="badge rest-day">Target Met</span>`;
+      } else {
+        dueBadge = `<span class="badge rest-day">Rest Day</span>`;
+      }
+
+      let quantBadge = '';
+      if (isQuant) {
+        quantBadge = `<span class="badge quant-badge">🎯 Target: ${targetPerDay} ${escapeHtml(unitStr)}/day</span>`;
+      }
 
       const freqLabel = habit.frequency_label || habit.frequency || 'Daily';
+      const freqBadgeClass = isWeekly ? 'badge weekly-target-badge' : 'badge frequency-badge';
+
+      let quantProgressHtml = '';
+      if (isQuant) {
+        const percent = Math.min(100, Math.round((todayCount / targetPerDay) * 100));
+        const goalBadge = isCompleted ? `<span class="quant-goal-met-badge">✓ Target Reached</span>` : '';
+        quantProgressHtml = `
+          <div class="quant-progress-box">
+            <div class="quant-progress-header">
+              <span class="quant-progress-label">📊 Daily Progress: ${goalBadge}</span>
+              <span class="quant-progress-count">${todayCount} / ${targetPerDay} ${escapeHtml(unitStr)} (${percent}%)</span>
+            </div>
+            <div class="quant-progress-track" title="${todayCount} of ${targetPerDay} ${escapeHtml(unitStr)} completed today">
+              <div class="quant-progress-fill ${isCompleted ? 'completed' : ''}" style="width: ${percent}%"></div>
+            </div>
+          </div>
+        `;
+      }
 
       let actionBtnHtml = '';
-      if (!isDue) {
+      if (!isDue && !isWeekly) {
         actionBtnHtml = `<button class="btn rest-day-btn" disabled>Rest Day</button>`;
+      } else if (isQuant) {
+        actionBtnHtml = `
+          <div class="quant-action-group">
+            <button class="btn success quant-inc-btn" data-id="${habit.id}" title="Tap to increment progress (+1)">
+              + Log Progress (${todayCount}/${targetPerDay} ${escapeHtml(unitStr)})
+            </button>
+            <button class="btn secondary quant-dec-btn" data-id="${habit.id}" title="Decrease count (-1)" ${todayCount <= 0 ? 'disabled' : ''}>
+              −
+            </button>
+            <button class="btn text-btn quant-reset-btn" data-id="${habit.id}" title="Reset today's count" ${todayCount <= 0 ? 'disabled' : ''}>
+              ↺ Reset
+            </button>
+          </div>
+        `;
       } else if (isCompleted) {
         actionBtnHtml = `<button class="btn danger checkin-btn" data-id="${habit.id}">Uncheck Today</button>`;
+      } else if (isWeekly && habit.weekly_progress && habit.weekly_progress.target_met) {
+        actionBtnHtml = `<button class="btn success checkin-btn" data-id="${habit.id}">+ Bonus Check In</button>`;
       } else {
         actionBtnHtml = `<button class="btn success checkin-btn" data-id="${habit.id}">Check In Today</button>`;
       }
+
+      let weeklyProgressHtml = '';
+      if (appFeatures.EXPERIMENT_WEEKLY_TARGETS && isWeekly && habit.weekly_progress) {
+        const wp = habit.weekly_progress;
+        const goalBadge = wp.target_met ? `<span class="weekly-goal-met-badge">✓ Goal Met</span>` : '';
+        weeklyProgressHtml = `
+          <div class="weekly-progress-box">
+            <div class="weekly-progress-header">
+              <span class="weekly-progress-label">🎯 Weekly Target: ${goalBadge}</span>
+              <span class="weekly-progress-count">${wp.completed} / ${wp.target} days (${wp.percent}%)</span>
+            </div>
+            <div class="weekly-progress-track" title="${wp.completed} of ${wp.target} days completed this week">
+              <div class="weekly-progress-fill" style="width: ${wp.percent}%"></div>
+            </div>
+          </div>
+        `;
+      }
+
+      const score = Number(habit.score) || 0;
+      const { tierClass, label: tierLabel } = getScoreTierInfo(score);
+      const scorePercentStr = score.toFixed(1);
+      const streakLabel = isWeekly ? 'Weekly Streak' : 'Current Streak';
+      const streakUnit = isWeekly ? 'weeks' : 'days';
 
       card.innerHTML = `
         <div class="habit-header">
@@ -160,7 +294,8 @@
             <h4>${escapeHtml(habit.title)}</h4>
             <div style="display: flex; gap: 6px; margin-top: 4px; flex-wrap: wrap;">
               ${dueBadge}
-              <span class="badge frequency-badge">${escapeHtml(freqLabel)}</span>
+              ${quantBadge}
+              <span class="${freqBadgeClass}">${escapeHtml(freqLabel)}</span>
             </div>
           </div>
           <div class="dropdown">
@@ -172,7 +307,20 @@
           </div>
         </div>
         <p class="habit-desc">${escapeHtml(habit.description || 'No description provided')}</p>
-        <div class="streak-badge">Current Streak: ${habit.current_streak || 0} days | Best: ${habit.longest_streak || 0} days</div>
+        ${quantProgressHtml}
+        ${weeklyProgressHtml}
+        <div class="streak-badge">🔥 ${streakLabel}: ${habit.current_streak || 0} ${streakUnit} | Best: ${habit.longest_streak || 0} ${streakUnit}</div>
+        <div class="habit-score-container">
+          <div class="score-meta">
+            <span class="score-label">
+              <span class="score-icon">⚡</span> Strength: <strong class="score-num">${scorePercentStr}%</strong>
+            </span>
+            <span class="score-tier-badge ${tierClass}">${tierLabel}</span>
+          </div>
+          <div class="score-progress-track" title="Habit Strength: ${scorePercentStr}% (${tierLabel})">
+            <div class="score-progress-fill ${tierClass}" style="width: ${Math.max(score, 3)}%"></div>
+          </div>
+        </div>
         ${actionBtnHtml}
       `;
 
@@ -246,13 +394,8 @@
     }
 
     const today = new Date();
-    const todayNormalized = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0, 0);
+    const todayStr = getLocalDateStr(today);
     const targetYear = selectedYear ? parseInt(selectedYear, 10) : today.getFullYear();
-
-    const months = [];
-    for (let m = 0; m < 12; m++) {
-      months.push(new Date(targetYear, m, 1, 0, 0, 0, 0));
-    }
 
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const dayLabels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -260,14 +403,13 @@
     const wrapper = document.createElement('div');
     wrapper.className = 'heatmap-months-wrapper';
 
-    let createdDate = null;
+    let createdDateStr = null;
     if (habit && habit.created_at) {
-      createdDate = parseLocalDate(habit.created_at);
+      createdDateStr = getLocalDateStr(habit.created_at);
     }
 
-    months.forEach(monthDate => {
-      const year = monthDate.getFullYear();
-      const monthIndex = monthDate.getMonth();
+    for (let monthIndex = 0; monthIndex < 12; monthIndex++) {
+      const year = targetYear;
 
       const monthBlock = document.createElement('div');
       monthBlock.className = 'heatmap-month-block';
@@ -298,18 +440,26 @@
 
       const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
       for (let dayNum = 1; dayNum <= daysInMonth; dayNum++) {
+        // Construct exact local YYYY-MM-DD date string directly from year, month, and day integers
+        const monthStr = String(monthIndex + 1).padStart(2, '0');
+        const dayStr = String(dayNum).padStart(2, '0');
+        const dateStr = `${year}-${monthStr}-${dayStr}`;
+
+        // Construct local date object explicitly with local integers (0:00:00 local time)
         const cellDate = new Date(year, monthIndex, dayNum, 0, 0, 0, 0);
-        const dateStr = getLocalDateStr(cellDate);
 
         const square = document.createElement('div');
         square.className = 'calendar-day';
         square.setAttribute('data-date', dateStr);
+        square.dataset.date = dateStr;
         square.innerText = dayNum;
 
         const isCompleted = dateSet.has(dateStr);
         const isDue = isHabitDueOnDate(habit, cellDate);
+        const isPast = dateStr < todayStr;
+        const isToday = (dateStr === todayStr);
 
-        if (createdDate && cellDate.getTime() < createdDate.getTime()) {
+        if (createdDateStr && dateStr < createdDateStr) {
           square.classList.add('pre-creation');
           square.title = `${dateStr}: Pre-creation`;
         } else if (isCompleted) {
@@ -318,11 +468,15 @@
         } else if (!isDue) {
           square.classList.add('rest-day');
           square.title = `${dateStr}: Rest day`;
-        } else if (cellDate.getTime() < todayNormalized.getTime()) {
+        } else if (isPast) {
           square.classList.add('missed');
           square.title = `${dateStr}: Missed`;
         } else {
           square.title = `${dateStr}: No activity`;
+        }
+
+        if (isToday) {
+          square.classList.add('today-cell');
         }
 
         daysGrid.appendChild(square);
@@ -330,12 +484,21 @@
 
       monthBlock.appendChild(daysGrid);
       wrapper.appendChild(monthBlock);
-    });
+    }
 
     calendarContainer.appendChild(wrapper);
   }
 
-  async function openInlineHistory(habitId) {
+  async function toggleInlineHistory(habitId, clickedElement = null) {
+    if (detailSection && !detailSection.classList.contains('hidden') && String(detailSection.getAttribute('data-active-id')) === String(habitId)) {
+      detailSection.classList.add('hidden');
+      detailSection.removeAttribute('data-active-id');
+      return;
+    }
+    await openInlineHistory(habitId, clickedElement);
+  }
+
+  async function openInlineHistory(habitId, clickedElement = null) {
     try {
       const res = await fetch(`/api/habits/${habitId}/history`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -368,19 +531,34 @@
 
         renderCalendar(data.checkInDates, data.habit, selectedYear);
 
+        const scoreBadge = document.getElementById('detail-habit-score');
+        if (scoreBadge) {
+          const s = Number(data.score !== undefined ? data.score : (data.habit && data.habit.score) || 0);
+          const info = getScoreTierInfo(s);
+          scoreBadge.innerText = `⚡ Habit Strength: ${s.toFixed(1)}% (${info.label})`;
+          scoreBadge.className = `score-tier-badge ${info.tierClass}`;
+          scoreBadge.style.display = 'inline-block';
+        }
+
         document.getElementById('detail-edit-btn').onclick = () => openEditModal(data.habit);
         document.getElementById('detail-delete-btn').onclick = () => deleteHabit(data.habit.id);
 
         detailSection.setAttribute('data-active-id', habitId);
 
         // Dynamically insert directly after this specific habit's card
-        const card = habitsList ? habitsList.querySelector(`.habit-card[data-habit-id="${habitId}"]`) : null;
+        let card = clickedElement ? clickedElement.closest('.habit-card') : null;
+        if (!card && habitsList) {
+          card = habitsList.querySelector(`.habit-card[data-habit-id="${habitId}"]`);
+        }
         if (card) {
           card.insertAdjacentElement('afterend', detailSection);
         }
 
+        const wasHidden = detailSection.classList.contains('hidden');
         detailSection.classList.remove('hidden');
-        detailSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        if (wasHidden) {
+          detailSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
       }
     } catch (err) {
       console.error('Error fetching habit history:', err);
@@ -391,6 +569,11 @@
     document.getElementById('edit-habit-id').value = habit.id;
     document.getElementById('edit-habit-title').value = habit.title;
     document.getElementById('edit-habit-desc').value = habit.description || '';
+
+    const targetPerDayInput = document.getElementById('edit-habit-target-per-day');
+    const unitInput = document.getElementById('edit-habit-unit');
+    if (targetPerDayInput) targetPerDayInput.value = habit.target_per_day || 1;
+    if (unitInput) unitInput.value = habit.unit || '';
 
     const freqType = habit.frequency_type || habit.frequency || 'daily';
     const freqSelect = document.getElementById('edit-habit-frequency');
@@ -403,18 +586,21 @@
 
     const daysContainer = document.getElementById('edit-freq-days-container');
     const intervalContainer = document.getElementById('edit-freq-interval-container');
+    const weeklyContainer = document.getElementById('edit-freq-weekly-container');
+
+    if (daysContainer) daysContainer.classList.add('hidden');
+    if (intervalContainer) intervalContainer.classList.add('hidden');
+    if (weeklyContainer) weeklyContainer.classList.add('hidden');
 
     if (freqType === 'specific_days') {
-      daysContainer.classList.remove('hidden');
-      intervalContainer.classList.add('hidden');
+      if (daysContainer) daysContainer.classList.remove('hidden');
       const val = Array.isArray(habit.frequency_value) ? habit.frequency_value : [];
       val.forEach(d => {
         const cb = document.querySelector(`input[name="edit-habit-days"][value="${d}"]`);
         if (cb) cb.checked = true;
       });
     } else if (freqType === 'interval') {
-      daysContainer.classList.add('hidden');
-      intervalContainer.classList.remove('hidden');
+      if (intervalContainer) intervalContainer.classList.remove('hidden');
       let intervalVal = 2;
       if (typeof habit.frequency_value === 'number') {
         intervalVal = habit.frequency_value;
@@ -422,19 +608,24 @@
         intervalVal = habit.frequency_value.interval_days || habit.frequency_value.interval || 2;
       }
       document.getElementById('edit-habit-interval-days').value = intervalVal;
-    } else {
-      daysContainer.classList.add('hidden');
-      intervalContainer.classList.add('hidden');
+    } else if (freqType === 'weekly_target') {
+      if (weeklyContainer) weeklyContainer.classList.remove('hidden');
+      const targetVal = habit.target_per_week || habit.frequency_value || 3;
+      const targetInput = document.getElementById('edit-habit-target-per-week');
+      if (targetInput) targetInput.value = targetVal;
     }
 
     editModal.classList.remove('hidden');
   }
 
-  async function checkIn(habitId, dateStr = null) {
+  async function checkIn(habitId, dateStr = null, action = null) {
     try {
-      const payload = {};
-      if (dateStr) {
-        payload.date = dateStr;
+      const effectiveDate = dateStr || getLocalDateStr(new Date());
+      const payload = {
+        date: effectiveDate
+      };
+      if (action) {
+        payload.action = action;
       }
 
       const res = await fetch(`/api/habits/${habitId}/checkin`, {
@@ -453,8 +644,8 @@
 
         // Refresh active calendar immediately if open for this habit
         const activeId = detailSection.getAttribute('data-active-id');
-        if (!detailSection.classList.contains('hidden') && activeId == habitId) {
-          openInlineHistory(habitId);
+        if (!detailSection.classList.contains('hidden') && String(activeId) === String(habitId)) {
+          await openInlineHistory(habitId);
         }
       } else {
         showToast(data.error || 'Check-in failed');
@@ -484,24 +675,18 @@
   }
 
   // --- Dynamic Frequency Form Listeners ---
-  function setupFrequencySelectToggle(selectId, daysContainerId, intervalContainerId) {
+  function setupFrequencySelectToggle(selectId, daysContainerId, intervalContainerId, weeklyContainerId) {
     const selectEl = document.getElementById(selectId);
     const daysEl = document.getElementById(daysContainerId);
     const intervalEl = document.getElementById(intervalContainerId);
-    if (!selectEl || !daysEl || !intervalEl) return;
+    const weeklyEl = document.getElementById(weeklyContainerId);
+    if (!selectEl) return;
 
     selectEl.addEventListener('change', () => {
       const val = selectEl.value;
-      if (val === 'specific_days') {
-        daysEl.classList.remove('hidden');
-        intervalEl.classList.add('hidden');
-      } else if (val === 'interval') {
-        intervalEl.classList.remove('hidden');
-        daysEl.classList.add('hidden');
-      } else {
-        daysEl.classList.add('hidden');
-        intervalEl.classList.add('hidden');
-      }
+      if (daysEl) daysEl.classList.toggle('hidden', val !== 'specific_days');
+      if (intervalEl) intervalEl.classList.toggle('hidden', val !== 'interval');
+      if (weeklyEl) weeklyEl.classList.toggle('hidden', val !== 'weekly_target');
     });
   }
 
@@ -523,23 +708,60 @@
       document.querySelectorAll('.dropdown-content').forEach(d => d.classList.add('hidden'));
     }
 
-    if (target.closest('.habit-clickable')) {
-      const id = target.closest('.habit-clickable').getAttribute('data-id');
-      openInlineHistory(id);
+    const clickableEl = target.closest('.habit-clickable');
+    if (clickableEl) {
+      const id = clickableEl.getAttribute('data-id');
+      toggleInlineHistory(id, clickableEl);
       return;
     }
 
     if (target.classList.contains('checkin-btn')) {
       const id = target.getAttribute('data-id');
-      checkIn(id);
+      const todayStr = getLocalDateStr(new Date());
+      checkIn(id, todayStr);
       return;
     }
 
-    if (target.classList.contains('calendar-day') && !target.classList.contains('empty-cell')) {
-      const dateStr = target.getAttribute('data-date');
+    const quantInc = target.closest('.quant-inc-btn');
+    if (quantInc) {
+      const id = quantInc.getAttribute('data-id');
+      const todayStr = getLocalDateStr(new Date());
+      checkIn(id, todayStr, 'increment');
+      return;
+    }
+
+    const quantDec = target.closest('.quant-dec-btn');
+    if (quantDec) {
+      const id = quantDec.getAttribute('data-id');
+      const todayStr = getLocalDateStr(new Date());
+      checkIn(id, todayStr, 'decrement');
+      return;
+    }
+
+    const quantReset = target.closest('.quant-reset-btn');
+    if (quantReset) {
+      const id = quantReset.getAttribute('data-id');
+      const todayStr = getLocalDateStr(new Date());
+      checkIn(id, todayStr, 'reset');
+      return;
+    }
+
+    const calDayEl = target.closest('.calendar-day');
+    if (calDayEl && !calDayEl.classList.contains('empty-cell')) {
+      const rawDate = calDayEl.dataset.date || calDayEl.getAttribute('data-date');
       const activeId = detailSection.getAttribute('data-active-id');
-      if (activeId && dateStr && (target.classList.contains('active') || target.classList.contains('missed'))) {
-        checkIn(activeId, dateStr);
+      if (activeId && rawDate) {
+        const match = rawDate.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (match) {
+          const dateStr = `${match[1]}-${match[2]}-${match[3]}`;
+          if (
+            !calDayEl.classList.contains('pre-creation') &&
+            !calDayEl.classList.contains('rest-day') &&
+            (calDayEl.classList.contains('active') || calDayEl.classList.contains('missed') || calDayEl.classList.contains('today-cell'))
+          ) {
+            checkIn(activeId, dateStr);
+          }
+        }
       }
       return;
     }
@@ -559,7 +781,10 @@
     }
   });
 
-  document.getElementById('close-detail-btn').addEventListener('click', () => detailSection.classList.add('hidden'));
+  document.getElementById('close-detail-btn').addEventListener('click', () => {
+    detailSection.classList.add('hidden');
+    detailSection.removeAttribute('data-active-id');
+  });
   document.getElementById('close-edit').addEventListener('click', () => editModal.classList.add('hidden'));
 
   // --- Initial Setup on DOM Ready ---
@@ -610,6 +835,8 @@
         const frequencyType = document.getElementById('habit-frequency').value;
 
         let frequencyValue = [];
+        let targetPerWeek = 7;
+
         if (frequencyType === 'specific_days') {
           const checkedDays = Array.from(document.querySelectorAll('input[name="habit-days"]:checked'))
             .map(cb => parseInt(cb.value, 10));
@@ -625,6 +852,17 @@
             return;
           }
           frequencyValue = intervalDays;
+        } else if (frequencyType === 'weekly_target') {
+          targetPerWeek = parseInt(document.getElementById('habit-target-per-week').value, 10) || 3;
+          frequencyValue = targetPerWeek;
+        }
+
+        let targetPerDay = 1;
+        let habitUnit = '';
+        if (appFeatures.EXPERIMENT_QUANTIFIABLE_HABITS) {
+          const tpd = parseInt(document.getElementById('habit-target-per-day').value, 10);
+          if (!isNaN(tpd) && tpd >= 1) targetPerDay = tpd;
+          habitUnit = document.getElementById('habit-unit').value.trim();
         }
 
         try {
@@ -638,7 +876,10 @@
               title,
               description,
               frequency_type: frequencyType,
-              frequency_value: frequencyValue
+              frequency_value: frequencyValue,
+              target_per_week: targetPerWeek,
+              target_per_day: targetPerDay,
+              unit: habitUnit
             })
           });
 
@@ -650,7 +891,14 @@
             document.getElementById('habit-frequency').value = 'daily';
             document.getElementById('freq-days-container').classList.add('hidden');
             document.getElementById('freq-interval-container').classList.add('hidden');
+            const weeklyContainer = document.getElementById('freq-weekly-container');
+            if (weeklyContainer) weeklyContainer.classList.add('hidden');
             document.querySelectorAll('input[name="habit-days"]').forEach(cb => cb.checked = false);
+
+            const targetPerDayEl = document.getElementById('habit-target-per-day');
+            const habitUnitEl = document.getElementById('habit-unit');
+            if (targetPerDayEl) targetPerDayEl.value = 1;
+            if (habitUnitEl) habitUnitEl.value = '';
 
             await loadHabits();
             await loadStats();
@@ -675,6 +923,8 @@
         const frequencyType = document.getElementById('edit-habit-frequency').value;
 
         let frequencyValue = [];
+        let targetPerWeek = 7;
+
         if (frequencyType === 'specific_days') {
           const checkedDays = Array.from(document.querySelectorAll('input[name="edit-habit-days"]:checked'))
             .map(cb => parseInt(cb.value, 10));
@@ -690,6 +940,17 @@
             return;
           }
           frequencyValue = intervalDays;
+        } else if (frequencyType === 'weekly_target') {
+          targetPerWeek = parseInt(document.getElementById('edit-habit-target-per-week').value, 10) || 3;
+          frequencyValue = targetPerWeek;
+        }
+
+        let editTargetPerDay = 1;
+        let editHabitUnit = '';
+        if (appFeatures.EXPERIMENT_QUANTIFIABLE_HABITS) {
+          const tpd = parseInt(document.getElementById('edit-habit-target-per-day').value, 10);
+          if (!isNaN(tpd) && tpd >= 1) editTargetPerDay = tpd;
+          editHabitUnit = document.getElementById('edit-habit-unit').value.trim();
         }
 
         try {
@@ -703,7 +964,10 @@
               title,
               description,
               frequency_type: frequencyType,
-              frequency_value: frequencyValue
+              frequency_value: frequencyValue,
+              target_per_week: targetPerWeek,
+              target_per_day: editTargetPerDay,
+              unit: editHabitUnit
             })
           });
 
@@ -715,8 +979,8 @@
 
             // Refresh active details view if it matches this habit
             const activeId = detailSection.getAttribute('data-active-id');
-            if (!detailSection.classList.contains('hidden') && activeId == habitId) {
-              openInlineHistory(habitId);
+            if (!detailSection.classList.contains('hidden') && String(activeId) === String(habitId)) {
+              await openInlineHistory(habitId);
             }
             showToast(`Habit updated successfully!`);
           } else {
@@ -727,5 +991,11 @@
         }
       });
     }
+
+    // Load feature flags on startup
+    loadFeatures();
+    // Toggle controls for create form and edit modal
+    setupFrequencySelectToggle('habit-frequency', 'freq-days-container', 'freq-interval-container', 'freq-weekly-container');
+    setupFrequencySelectToggle('edit-habit-frequency', 'edit-freq-days-container', 'edit-freq-interval-container', 'edit-freq-weekly-container');
   });
 })();

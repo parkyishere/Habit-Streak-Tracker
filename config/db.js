@@ -1,5 +1,9 @@
-const { Pool } = require('pg');
+const { Pool, types } = require('pg');
 require('dotenv').config();
+
+// Ensure PostgreSQL DATE (type 1082) returns raw 'YYYY-MM-DD' string directly without UTC conversion
+types.setTypeParser(1082, (val) => val);
+
 const isProduction = process.env.RENDER === 'true';
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -34,6 +38,9 @@ const initDatabase = async () => {
         frequency_type VARCHAR(50) DEFAULT 'daily',
         frequency_value JSONB DEFAULT '[]'::jsonb,
         target_per_week INT DEFAULT 7,
+        target_per_day INT DEFAULT 1,
+        unit VARCHAR(50) DEFAULT '',
+        score NUMERIC(5, 2) DEFAULT 0.0,
         is_archived BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
@@ -43,6 +50,7 @@ const initDatabase = async () => {
         habit_id INT NOT NULL REFERENCES habits(id) ON DELETE CASCADE,
         check_in_date DATE NOT NULL,
         notes TEXT,
+        count INT DEFAULT 1,
         status BOOLEAN DEFAULT TRUE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(habit_id, check_in_date)
@@ -55,15 +63,21 @@ const initDatabase = async () => {
         current_streak INT DEFAULT 0,
         longest_streak INT DEFAULT 0,
         total_completed INT DEFAULT 0,
+        score NUMERIC(5, 2) DEFAULT 0.0,
         last_check_in_date DATE
       );
     `);
 
-    // Ensure frequency columns exist for older schema instances
+    // Ensure frequency, score, and quantifiable columns exist for older schema instances
     await pool.query(`
       ALTER TABLE habits ADD COLUMN IF NOT EXISTS frequency VARCHAR(50) DEFAULT 'daily';
       ALTER TABLE habits ADD COLUMN IF NOT EXISTS frequency_type VARCHAR(50) DEFAULT 'daily';
       ALTER TABLE habits ADD COLUMN IF NOT EXISTS frequency_value JSONB DEFAULT '[]'::jsonb;
+      ALTER TABLE habits ADD COLUMN IF NOT EXISTS score NUMERIC(5, 2) DEFAULT 0.0;
+      ALTER TABLE habits ADD COLUMN IF NOT EXISTS target_per_day INT DEFAULT 1;
+      ALTER TABLE habits ADD COLUMN IF NOT EXISTS unit VARCHAR(50) DEFAULT '';
+      ALTER TABLE streaks ADD COLUMN IF NOT EXISTS score NUMERIC(5, 2) DEFAULT 0.0;
+      ALTER TABLE check_ins ADD COLUMN IF NOT EXISTS count INT DEFAULT 1;
     `);
 
     // Seed default categories if empty

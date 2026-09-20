@@ -9,7 +9,8 @@ exports.getStats = async (req, res) => {
       SELECT 
         COUNT(DISTINCT h.id) as total_habits,
         COALESCE(SUM(s.total_completed), 0) as total_check_ins,
-        COALESCE(MAX(s.longest_streak), 0) as max_streak
+        COALESCE(MAX(s.longest_streak), 0) as max_streak,
+        COALESCE(ROUND(AVG(s.score), 1), 0.0) as avg_score
       FROM habits h
       LEFT JOIN streaks s ON h.id = s.habit_id
       WHERE h.user_id = $1 AND h.is_archived = FALSE
@@ -44,6 +45,7 @@ exports.getStats = async (req, res) => {
         totalHabits: parseInt(overall.total_habits, 10),
         totalCheckIns: parseInt(overall.total_check_ins, 10),
         maxStreak: parseInt(overall.max_streak, 10),
+        avgScore: parseFloat(overall.avg_score) || 0.0,
         categories: categoryStats,
         heatmap
       }

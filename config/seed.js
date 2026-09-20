@@ -30,10 +30,11 @@ async function seedData() {
 
     // 3. Create Streak Record
     const streakQuery = `
-      INSERT INTO streaks (user_id, habit_id, current_streak, longest_streak, total_completed) 
-      VALUES ($1, $2, $3, $4, $5);
+      INSERT INTO streaks (user_id, habit_id, current_streak, longest_streak, total_completed, score) 
+      VALUES ($1, $2, $3, $4, $5, $6);
     `;
-    await pool.query(streakQuery, [userId, habitId, 15, 20, 25]);
+    await pool.query(streakQuery, [userId, habitId, 15, 20, 25, 87.5]);
+    await pool.query('UPDATE habits SET score = $1 WHERE id = $2', [87.5, habitId]);
 
     // 4. Seed Past Check-Ins
     const today = new Date();

@@ -3,6 +3,14 @@
  * Strictly operates on local time zeroed out to midnight (00:00:00.000)
  */
 
+const features = require('../config/features');
+let weeklyTargetEngine = null;
+try {
+  weeklyTargetEngine = require('./weeklyTargetEngine');
+} catch (e) {
+  // Graceful fallback if module is removed
+}
+
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const FULL_DAY_MAP = {
   sunday: 0,
@@ -37,6 +45,9 @@ function normalizeDate(dateInput = new Date()) {
     if (match) {
       return new Date(parseInt(match[1], 10), parseInt(match[2], 10) - 1, parseInt(match[3], 10), 0, 0, 0, 0);
     }
+  }
+  if (dateInput instanceof Date) {
+    return new Date(dateInput.getFullYear(), dateInput.getMonth(), dateInput.getDate(), 0, 0, 0, 0);
   }
   const d = new Date(dateInput);
   if (isNaN(d.getTime())) {
@@ -75,7 +86,7 @@ function parseFrequencyValue(value) {
  * @param {Date|string} [targetDate] - Target date to evaluate against (defaults to today)
  * @returns {boolean}
  */
-function isHabitDueToday(habit, targetDate = new Date()) {
+function isHabitDueToday(habit, targetDate = new Date(), checkInDates = []) {
   if (!habit) return false;
 
   const target = normalizeDate(targetDate);
@@ -122,6 +133,12 @@ function isHabitDueToday(habit, targetDate = new Date()) {
       return diffDays % interval === 0;
     }
 
+    case 'weekly_target':
+      if (features.EXPERIMENT_WEEKLY_TARGETS && weeklyTargetEngine) {
+        return weeklyTargetEngine.isWeeklyTargetDueToday(habit, target, checkInDates);
+      }
+      return true;
+
     case 'weekly':
       // Legacy compatibility: weekly habits default to due
       return true;
@@ -129,7 +146,7 @@ function isHabitDueToday(habit, targetDate = new Date()) {
     case 'monthly':
       // Legacy compatibility: monthly habits default to due on the same day-of-month
       if (habit.created_at) {
-        return new Date(habit.created_at).getDate() === target.getDate();
+        return normalizeDate(habit.created_at).getDate() === target.getDate();
       }
       return true;
 
@@ -142,31 +159,40 @@ function isHabitDueToday(habit, targetDate = new Date()) {
  * Returns a user-friendly label for a habit's frequency setting.
  * @param {string} frequencyType 
  * @param {*} frequencyValue 
+ * @param {Object} [habit]
  * @returns {string}
  */
-function formatFrequencyLabel(frequencyType, frequencyValue) {
+function formatFrequencyLabel(frequencyType = 'daily', frequencyValue = null, habit = null) {
   const type = (frequencyType || 'daily').toLowerCase();
   const val = parseFrequencyValue(frequencyValue);
 
-  if (type === 'daily') {
-    return 'Daily';
+  if (type === 'daily') return 'Daily';
+
+  if (type === 'weekly_target') {
+    if (features.EXPERIMENT_WEEKLY_TARGETS && weeklyTargetEngine) {
+      const target = habit && habit.target_per_week ? habit.target_per_week : val;
+      return weeklyTargetEngine.formatWeeklyTargetLabel(target || 3);
+    }
+    return 'Weekly Target';
   }
 
   if (type === 'specific_days') {
-    if (!Array.isArray(val) || val.length === 0) return 'Specific Days';
-    const names = val
-      .map(d => {
-        const num = typeof d === 'string' && FULL_DAY_MAP[d.toLowerCase()] !== undefined
-          ? FULL_DAY_MAP[d.toLowerCase()]
-          : Number(d);
-        return DAY_NAMES[num] || d;
-      })
-      .filter(Boolean);
-    return names.join(', ');
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const days = Array.isArray(val) ? val : [];
+    if (days.length === 0) return 'No days selected';
+    if (days.length === 7) return 'Every day';
+    const dayMap = { sunday: 0, monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6, sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 };
+    const sorted = days
+      .map(d => typeof d === 'string' ? (dayMap[d.toLowerCase()] ?? parseInt(d, 10)) : Number(d))
+      .filter(n => !isNaN(n) && n >= 0 && n <= 6)
+      .sort((a, b) => a - b);
+    return sorted.map(d => dayNames[d]).join(', ');
   }
 
   if (type === 'interval') {
-    const interval = typeof val === 'number' ? val : (val && (val.interval_days || val.interval)) || 1;
+    let interval = 1;
+    if (typeof val === 'number') interval = val;
+    else if (val && typeof val === 'object') interval = val.interval_days || val.interval || 1;
     return interval === 1 ? 'Every day' : `Every ${interval} days`;
   }
 
@@ -186,6 +212,12 @@ function getLocalDateStr(dateInput = new Date()) {
       return `${match[1]}-${match[2]}-${match[3]}`;
     }
   }
+  if (dateInput instanceof Date) {
+    const year = dateInput.getFullYear();
+    const month = String(dateInput.getMonth() + 1).padStart(2, '0');
+    const day = String(dateInput.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
   const d = new Date(dateInput);
   if (isNaN(d.getTime())) return '';
   const year = d.getFullYear();
@@ -204,6 +236,11 @@ function getLocalDateStr(dateInput = new Date()) {
  * @returns {{ currentStreak: number, longestStreak: number }}
  */
 function calculateStreakMetrics(habit, checkInDates, today = new Date()) {
+  const freqType = (habit.frequency_type || habit.frequency || 'daily').toLowerCase();
+  if (features.EXPERIMENT_WEEKLY_TARGETS && freqType === 'weekly_target' && weeklyTargetEngine) {
+    return weeklyTargetEngine.calculateWeeklyStreakMetrics(habit, checkInDates, today);
+  }
+
   const normToday = normalizeDate(today);
   const todayStr = getLocalDateStr(normToday);
   const createdAt = normalizeDate(habit.created_at || normToday);
@@ -264,7 +301,63 @@ function calculateStreakMetrics(habit, checkInDates, today = new Date()) {
     curr.setDate(curr.getDate() - 1);
   }
 
-  return { currentStreak, longestStreak };
+  // 3. Exponential Habit Score (0.0 to 100.0%)
+  // Retention factor lambda: retains 92% strength on a missed scheduled day (8% gentle decay)
+  // Gain factor alpha: (1 - 0.92) = 0.08, asymptotic exponential approach toward 100 on check-in
+  const DECAY_FACTOR = 0.92;
+  const GAIN_FACTOR = 0.08;
+
+  let score = 0.0;
+  curr = new Date(minDate);
+
+  while (curr <= normToday) {
+    const dStr = getLocalDateStr(curr);
+    const isDue = isHabitDueToday(habit, curr);
+
+    if (isDue) {
+      if (datesSet.has(dStr)) {
+        // Checked in: smooth exponential increase toward 100.0
+        score = score * (1 - GAIN_FACTOR) + 100.0 * GAIN_FACTOR;
+      } else {
+        // Scheduled due day missed (excluding today, which is still in progress): apply graceful decay
+        if (dStr !== todayStr) {
+          score = score * DECAY_FACTOR;
+        }
+      }
+    }
+    // Rest days (!isDue) do NOT penalize or decay the score
+    curr.setDate(curr.getDate() + 1);
+  }
+
+  // Round cleanly to 1 decimal place and clamp between 0.0 and 100.0
+  const roundedScore = Math.min(100.0, Math.max(0.0, Math.round(score * 10) / 10));
+
+  return { currentStreak, longestStreak, score: roundedScore };
+}
+
+/**
+ * Calculates exponential habit strength score alone
+ * @param {Object} habit 
+ * @param {Set<string>|Array<string>} checkInDates 
+ * @param {Date|string} [today] 
+ * @returns {number}
+ */
+function calculateHabitScore(habit, checkInDates, today = new Date()) {
+  const metrics = calculateStreakMetrics(habit, checkInDates, today);
+  return metrics.score;
+}
+
+/**
+ * Returns strength tier metadata based on score
+ * @param {number} score 
+ * @returns {{ tier: string, label: string, color: string }}
+ */
+function getHabitScoreTier(score) {
+  const s = Number(score) || 0;
+  if (s >= 80) return { tier: 'mastered', label: 'Mastered', color: '#10b981' };
+  if (s >= 50) return { tier: 'strong', label: 'Strong', color: '#3b82f6' };
+  if (s >= 25) return { tier: 'building', label: 'Building', color: '#f59e0b' };
+  return { tier: 'starting', label: 'Starting', color: '#8b5cf6' };
 }
 
 module.exports = {
@@ -274,5 +367,8 @@ module.exports = {
   isHabitDueToday,
   formatFrequencyLabel,
   calculateStreakMetrics,
+  calculateHabitScore,
+  getHabitScoreTier,
+  weeklyTargetEngine,
   DAY_NAMES
 };

@@ -51,10 +51,18 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Feature Flags Configuration
+const features = require('./config/features');
+
 // --- API ROUTES ---
 app.use('/api/auth', authRoutes);
 app.use('/api/habits', habitRoutes);
 app.use('/api/analytics', analyticsRoutes);
+
+// Feature flags endpoint
+app.get('/api/features', (req, res) => {
+  res.json({ success: true, features });
+});
 
 // Health check
 app.get('/api/health', async (req, res) => {

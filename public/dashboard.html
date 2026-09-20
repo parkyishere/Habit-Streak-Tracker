@@ -35,6 +35,10 @@
         <h3>Best Streak</h3>
         <p id="stat-max-streak">0 days</p>
       </div>
+      <div class="stat-card">
+        <h3>Avg Strength</h3>
+        <p id="stat-avg-score">0.0%</p>
+      </div>
     </div>
 
     <div class="card">
@@ -74,6 +78,29 @@
           </div>
         </div>
 
+        <!-- Dynamic Weekly Target Selector (Experimental) -->
+        <div id="freq-weekly-container" class="freq-sub-container hidden">
+          <span class="sub-label">Weekly Target:</span>
+          <div class="interval-input-group">
+            <span>Target</span>
+            <input type="number" id="habit-target-per-week" min="1" max="7" value="3" class="input interval-number">
+            <span>days / week</span>
+          </div>
+        </div>
+
+        <!-- Dynamic Quantifiable Daily Target (Experimental) -->
+        <div id="quant-create-row" class="quant-form-row">
+          <div class="quant-input-group">
+            <span class="sub-label">Daily Target:</span>
+            <input type="number" id="habit-target-per-day" min="1" max="1000" value="1" class="input interval-number">
+            <span class="sub-label-helper">per day</span>
+          </div>
+          <div class="quant-input-group">
+            <span class="sub-label">Unit:</span>
+            <input type="text" id="habit-unit" placeholder="e.g. glasses, pages, mins" maxlength="30" class="input quant-unit-input">
+          </div>
+        </div>
+
         <button type="submit" class="btn success add-habit-btn">Add Habit</button>
       </form>
     </div>
@@ -91,8 +118,9 @@
     <!-- Inline Details & GitHub Calendar Section -->
     <div id="habit-detail-section" class="card hidden">
       <div class="detail-header">
-        <div style="display: flex; align-items: center; gap: 12px;">
+        <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
           <h3>Check-in Activity Grid</h3>
+          <span id="detail-habit-score" class="score-tier-badge tier-starting" style="display: none;"></span>
           <select id="heatmap-year-select" class="input" style="width: auto; padding: 4px 8px; font-size: 13px; margin: 0;"></select>
         </div>
         <div class="detail-actions">
@@ -144,6 +172,29 @@
             <span>Every</span>
             <input type="number" id="edit-habit-interval-days" min="1" max="365" value="2" class="input interval-number">
             <span>days</span>
+          </div>
+        </div>
+
+        <!-- Edit Dynamic Weekly Target Selector (Experimental) -->
+        <div id="edit-freq-weekly-container" class="freq-sub-container hidden">
+          <span class="sub-label">Weekly Target:</span>
+          <div class="interval-input-group">
+            <span>Target</span>
+            <input type="number" id="edit-habit-target-per-week" min="1" max="7" value="3" class="input interval-number">
+            <span>days / week</span>
+          </div>
+        </div>
+
+        <!-- Edit Dynamic Quantifiable Daily Target (Experimental) -->
+        <div id="edit-quant-row" class="quant-form-row">
+          <div class="quant-input-group">
+            <span class="sub-label">Daily Target:</span>
+            <input type="number" id="edit-habit-target-per-day" min="1" max="1000" value="1" class="input interval-number">
+            <span class="sub-label-helper">per day</span>
+          </div>
+          <div class="quant-input-group">
+            <span class="sub-label">Unit:</span>
+            <input type="text" id="edit-habit-unit" placeholder="e.g. glasses, pages, mins" maxlength="30" class="input quant-unit-input">
           </div>
         </div>
 
