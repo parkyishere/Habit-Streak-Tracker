@@ -13,8 +13,11 @@
 
   // Filter tab state
   let currentTab = 'due'; // 'due' | 'all'
+  let currentCategoryFilter = 'all'; // 'all' | category name
+  let currentSortOption = 'default'; // 'default' | 'score-desc' | 'streak-desc' | 'alpha-asc'
   let cachedHabits = [];
-  let appFeatures = { EXPERIMENT_WEEKLY_TARGETS: false };
+  let cachedCategories = [];
+  let appFeatures = { EXPERIMENT_WEEKLY_TARGETS: false, EXPERIMENT_CATEGORIES_TAGS: false };
 
   async function loadFeatures() {
     try {
@@ -27,6 +30,111 @@
       console.warn('Could not load feature flags:', err);
     }
     applyFeatureToggles();
+  }
+
+  async function loadCategories() {
+    if (!appFeatures.EXPERIMENT_CATEGORIES_TAGS) return;
+    try {
+      const res = await fetch('/api/categories', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success && Array.isArray(data.categories)) {
+        cachedCategories = data.categories;
+        populateCategoryDropdowns();
+        renderCategoryFilterChips();
+      }
+    } catch (err) {
+      console.warn('Could not load categories:', err);
+    }
+  }
+
+  function populateCategoryDropdowns() {
+    const createSelect = document.getElementById('habit-category');
+    const editSelect = document.getElementById('edit-habit-category');
+
+    if (createSelect) {
+      const currentVal = createSelect.value;
+      createSelect.innerHTML = '<option value="">-- Select Category --</option>';
+      cachedCategories.forEach(cat => {
+        const opt = document.createElement('option');
+        opt.value = cat.id;
+        opt.innerText = cat.name;
+        opt.setAttribute('data-color', cat.color_hex || '#6366F1');
+        createSelect.appendChild(opt);
+      });
+      if (currentVal) createSelect.value = currentVal;
+    }
+
+    if (editSelect) {
+      const currentVal = editSelect.value;
+      editSelect.innerHTML = '<option value="">-- None --</option>';
+      cachedCategories.forEach(cat => {
+        const opt = document.createElement('option');
+        opt.value = cat.id;
+        opt.innerText = cat.name;
+        opt.setAttribute('data-color', cat.color_hex || '#6366F1');
+        editSelect.appendChild(opt);
+      });
+      if (currentVal) editSelect.value = currentVal;
+    }
+  }
+
+  function renderCategoryFilterChips() {
+    const chipsContainer = document.getElementById('category-filter-chips');
+    if (!chipsContainer) return;
+
+    chipsContainer.innerHTML = `
+      <button type="button" class="cat-menu-item ${currentCategoryFilter === 'all' ? 'active' : ''}" data-category="all">
+        <span class="cat-chip-dot all-dot"></span> All
+      </button>
+    `;
+
+    cachedCategories.forEach(cat => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = `cat-menu-item ${currentCategoryFilter.toLowerCase() === cat.name.toLowerCase() ? 'active' : ''}`;
+      btn.setAttribute('data-category', cat.name);
+      btn.innerHTML = `
+        <span class="cat-chip-dot" style="background: ${cat.color_hex || '#6366F1'};"></span>
+        ${escapeHtml(cat.name)}
+      `;
+      chipsContainer.appendChild(btn);
+    });
+
+    updateFilterSortUI();
+  }
+
+  function updateFilterSortUI() {
+    const selectedCatText = document.getElementById('selected-category-text');
+    if (selectedCatText) {
+      selectedCatText.innerText = currentCategoryFilter === 'all' ? 'All' : currentCategoryFilter;
+    }
+
+    const selectedSortText = document.getElementById('selected-sort-text');
+    if (selectedSortText) {
+      const sortLabels = {
+        'default': 'Default',
+        'score-desc': '⚡ Strength',
+        'streak-desc': '🔥 Streak',
+        'alpha-asc': '🔤 A to Z'
+      };
+      selectedSortText.innerText = sortLabels[currentSortOption] || 'Default';
+    }
+
+    let activeCount = 0;
+    if (currentCategoryFilter !== 'all') activeCount++;
+    if (currentSortOption !== 'default') activeCount++;
+
+    const badgeEl = document.getElementById('active-filter-badge');
+    const toggleBtn = document.getElementById('filter-sort-toggle-btn');
+    if (badgeEl) {
+      badgeEl.innerText = activeCount;
+      badgeEl.classList.toggle('hidden', activeCount === 0);
+    }
+    if (toggleBtn) {
+      toggleBtn.classList.toggle('active-filter', activeCount > 0);
+    }
   }
 
   function applyFeatureToggles() {
@@ -53,6 +161,18 @@
     const editQuantRow = document.getElementById('edit-quant-row');
     if (quantCreateRow) quantCreateRow.classList.toggle('hidden', !isQuant);
     if (editQuantRow) editQuantRow.classList.toggle('hidden', !isQuant);
+
+    // Categories & Filter/Sort feature toggle
+    const isCats = Boolean(appFeatures.EXPERIMENT_CATEGORIES_TAGS);
+    const catCreateRow = document.getElementById('category-create-row');
+    const editCatRow = document.getElementById('edit-category-row');
+    const filterSortContainer = document.getElementById('filter-sort-container');
+    if (catCreateRow) catCreateRow.classList.toggle('hidden', !isCats);
+    if (editCatRow) editCatRow.classList.toggle('hidden', !isCats);
+    if (filterSortContainer) filterSortContainer.classList.toggle('hidden', !isCats);
+    if (isCats) {
+      loadCategories();
+    }
   }
 
   function showToast(message) {
@@ -172,9 +292,37 @@
     if (dueCountEl) dueCountEl.innerText = dueHabits.length;
     if (allCountEl) allCountEl.innerText = cachedHabits.length;
 
-    const habitsToDisplay = currentTab === 'due' ? dueHabits : cachedHabits;
+    let habitsToDisplay = currentTab === 'due' ? dueHabits : cachedHabits;
+
+    // 1. Filter by Category
+    if (appFeatures.EXPERIMENT_CATEGORIES_TAGS && currentCategoryFilter !== 'all') {
+      const filterLower = currentCategoryFilter.toLowerCase();
+      habitsToDisplay = habitsToDisplay.filter(h => {
+        const catNameMatch = h.category_name && h.category_name.toLowerCase() === filterLower;
+        const catIdMatch = String(h.category_id) === String(currentCategoryFilter);
+        return catNameMatch || catIdMatch;
+      });
+    }
+
+    // 2. Sort Habits
+    if (currentSortOption === 'score-desc') {
+      habitsToDisplay = [...habitsToDisplay].sort((a, b) => (Number(b.score) || 0) - (Number(a.score) || 0));
+    } else if (currentSortOption === 'streak-desc') {
+      habitsToDisplay = [...habitsToDisplay].sort((a, b) => (Number(b.current_streak) || 0) - (Number(a.current_streak) || 0));
+    } else if (currentSortOption === 'alpha-asc') {
+      habitsToDisplay = [...habitsToDisplay].sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+    }
 
     if (habitsToDisplay.length === 0) {
+      if (appFeatures.EXPERIMENT_CATEGORIES_TAGS && currentCategoryFilter !== 'all') {
+        habitsList.innerHTML = `
+          <div class="empty-state">
+            <h4>No habits found in "${escapeHtml(currentCategoryFilter)}"</h4>
+            <p>Select "All" in the Filter &amp; Sort menu to view your full habit list or choose another category filter.</p>
+          </div>
+        `;
+        return;
+      }
       if (currentTab === 'due') {
         habitsList.innerHTML = `
           <div class="empty-state">
@@ -218,6 +366,15 @@
       let quantBadge = '';
       if (isQuant) {
         quantBadge = `<span class="badge quant-badge">🎯 Target: ${targetPerDay} ${escapeHtml(unitStr)}/day</span>`;
+      }
+
+      let categoryBadgeHtml = '';
+      if (appFeatures.EXPERIMENT_CATEGORIES_TAGS && habit.category_name) {
+        const catColor = habit.color_hex || (habit.category_color_hex || '#6366F1');
+        const catName = habit.category_name;
+        categoryBadgeHtml = `<span class="cat-badge" style="border-color: ${catColor}40; background: ${catColor}18; color: #1e293b;">
+          <span class="cat-badge-dot" style="background: ${catColor};"></span>${escapeHtml(catName)}
+        </span>`;
       }
 
       const freqLabel = habit.frequency_label || habit.frequency || 'Daily';
@@ -292,8 +449,9 @@
         <div class="habit-header">
           <div class="habit-clickable" data-id="${habit.id}">
             <h4>${escapeHtml(habit.title)}</h4>
-            <div style="display: flex; gap: 6px; margin-top: 4px; flex-wrap: wrap;">
+            <div style="display: flex; gap: 6px; margin-top: 4px; flex-wrap: wrap; align-items: center;">
               ${dueBadge}
+              ${categoryBadgeHtml}
               ${quantBadge}
               <span class="${freqBadgeClass}">${escapeHtml(freqLabel)}</span>
             </div>
@@ -615,6 +773,13 @@
       if (targetInput) targetInput.value = targetVal;
     }
 
+    if (appFeatures.EXPERIMENT_CATEGORIES_TAGS) {
+      const editCatSelect = document.getElementById('edit-habit-category');
+      const editColorInput = document.getElementById('edit-habit-color');
+      if (editCatSelect) editCatSelect.value = habit.category_id || '';
+      if (editColorInput) editColorInput.value = habit.color_hex || (habit.category_color_hex || '#6366F1');
+    }
+
     editModal.classList.remove('hidden');
   }
 
@@ -746,24 +911,14 @@
       return;
     }
 
-    const calDayEl = target.closest('.calendar-day');
-    if (calDayEl && !calDayEl.classList.contains('empty-cell')) {
-      const rawDate = calDayEl.dataset.date || calDayEl.getAttribute('data-date');
-      const activeId = detailSection.getAttribute('data-active-id');
-      if (activeId && rawDate) {
-        const match = rawDate.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
-        if (match) {
-          const dateStr = `${match[1]}-${match[2]}-${match[3]}`;
-          if (
-            !calDayEl.classList.contains('pre-creation') &&
-            !calDayEl.classList.contains('rest-day') &&
-            (calDayEl.classList.contains('active') || calDayEl.classList.contains('missed') || calDayEl.classList.contains('today-cell'))
-          ) {
-            checkIn(activeId, dateStr);
-          }
-        }
-      }
-      return;
+    // Date-Click Logging Disabled: Calendar cells are view-only heatmap visualization.
+    // Clicking individual calendar date cells no longer triggers check-in.
+
+    if (!target.closest('#filter-sort-container')) {
+      const menu = document.getElementById('filter-sort-menu');
+      const btn = document.getElementById('filter-sort-toggle-btn');
+      if (menu) menu.classList.add('hidden');
+      if (btn) btn.setAttribute('aria-expanded', 'false');
     }
 
     if (target.classList.contains('delete-btn')) {
@@ -791,10 +946,12 @@
   document.addEventListener('DOMContentLoaded', () => {
     loadStats();
     loadHabits();
+    loadWeeklyTargets();
+    loadFeatures();
 
     // Toggle controls for create form and edit modal
-    setupFrequencySelectToggle('habit-frequency', 'freq-days-container', 'freq-interval-container');
-    setupFrequencySelectToggle('edit-habit-frequency', 'edit-freq-days-container', 'edit-freq-interval-container');
+    setupFrequencySelectToggle('habit-frequency', 'freq-days-container', 'freq-interval-container', 'freq-weekly-container');
+    setupFrequencySelectToggle('edit-habit-frequency', 'edit-freq-days-container', 'edit-freq-interval-container', 'edit-freq-weekly-container');
 
     const yearSelect = document.getElementById('heatmap-year-select');
     if (yearSelect) {
@@ -865,6 +1022,15 @@
           habitUnit = document.getElementById('habit-unit').value.trim();
         }
 
+        let categoryId = null;
+        let colorHex = '';
+        if (appFeatures.EXPERIMENT_CATEGORIES_TAGS) {
+          const catSelect = document.getElementById('habit-category');
+          if (catSelect && catSelect.value) categoryId = parseInt(catSelect.value, 10);
+          const colorEl = document.getElementById('habit-color');
+          if (colorEl) colorHex = colorEl.value.trim();
+        }
+
         try {
           const res = await fetch('/api/habits', {
             method: 'POST',
@@ -879,7 +1045,9 @@
               frequency_value: frequencyValue,
               target_per_week: targetPerWeek,
               target_per_day: targetPerDay,
-              unit: habitUnit
+              unit: habitUnit,
+              category_id: categoryId,
+              color_hex: colorHex
             })
           });
 
@@ -899,6 +1067,11 @@
             const habitUnitEl = document.getElementById('habit-unit');
             if (targetPerDayEl) targetPerDayEl.value = 1;
             if (habitUnitEl) habitUnitEl.value = '';
+
+            const catSelectEl = document.getElementById('habit-category');
+            const colorInputEl = document.getElementById('habit-color');
+            if (catSelectEl) catSelectEl.value = '';
+            if (colorInputEl) colorInputEl.value = '#6366F1';
 
             await loadHabits();
             await loadStats();
@@ -953,6 +1126,15 @@
           editHabitUnit = document.getElementById('edit-habit-unit').value.trim();
         }
 
+        let editCategoryId = null;
+        let editColorHex = '';
+        if (appFeatures.EXPERIMENT_CATEGORIES_TAGS) {
+          const editCatSelect = document.getElementById('edit-habit-category');
+          if (editCatSelect && editCatSelect.value) editCategoryId = parseInt(editCatSelect.value, 10);
+          const editColorEl = document.getElementById('edit-habit-color');
+          if (editColorEl) editColorHex = editColorEl.value.trim();
+        }
+
         try {
           const res = await fetch(`/api/habits/${habitId}`, {
             method: 'PUT',
@@ -967,7 +1149,9 @@
               frequency_value: frequencyValue,
               target_per_week: targetPerWeek,
               target_per_day: editTargetPerDay,
-              unit: editHabitUnit
+              unit: editHabitUnit,
+              category_id: editCategoryId,
+              color_hex: editColorHex
             })
           });
 
@@ -992,10 +1176,86 @@
       });
     }
 
-    // Load feature flags on startup
-    loadFeatures();
-    // Toggle controls for create form and edit modal
-    setupFrequencySelectToggle('habit-frequency', 'freq-days-container', 'freq-interval-container', 'freq-weekly-container');
-    setupFrequencySelectToggle('edit-habit-frequency', 'edit-freq-days-container', 'edit-freq-interval-container', 'edit-freq-weekly-container');
+    // Filter & Sort Menu Toggle
+    const filterSortToggleBtn = document.getElementById('filter-sort-toggle-btn');
+    const filterSortMenu = document.getElementById('filter-sort-menu');
+    if (filterSortToggleBtn && filterSortMenu) {
+      filterSortToggleBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isHidden = filterSortMenu.classList.toggle('hidden');
+        filterSortToggleBtn.setAttribute('aria-expanded', String(!isHidden));
+      });
+    }
+
+    // Category options click handler inside menu
+    const categoryMenuGrid = document.getElementById('category-filter-chips');
+    if (categoryMenuGrid) {
+      categoryMenuGrid.addEventListener('click', (e) => {
+        const item = e.target.closest('.cat-menu-item');
+        if (!item) return;
+        currentCategoryFilter = item.getAttribute('data-category') || 'all';
+        categoryMenuGrid.querySelectorAll('.cat-menu-item').forEach(c => {
+          c.classList.toggle('active', c === item);
+        });
+        updateFilterSortUI();
+        renderHabitsList();
+      });
+    }
+
+    // Sort options change handler
+    const sortMenuOptions = document.getElementById('sort-menu-options');
+    if (sortMenuOptions) {
+      sortMenuOptions.addEventListener('change', (e) => {
+        if (e.target && e.target.name === 'habit-sort') {
+          currentSortOption = e.target.value;
+          updateFilterSortUI();
+          renderHabitsList();
+        }
+      });
+    }
+
+    // Reset Filter & Sort
+    const resetFilterSortBtn = document.getElementById('reset-filter-sort-btn');
+    if (resetFilterSortBtn) {
+      resetFilterSortBtn.addEventListener('click', () => {
+        currentCategoryFilter = 'all';
+        currentSortOption = 'default';
+        const defaultRadio = document.querySelector('input[name="habit-sort"][value="default"]');
+        if (defaultRadio) defaultRadio.checked = true;
+        renderCategoryFilterChips();
+        renderHabitsList();
+      });
+    }
+
+    // Apply & Close Button
+    const applyFilterSortBtn = document.getElementById('apply-filter-sort-btn');
+    if (applyFilterSortBtn && filterSortMenu) {
+      applyFilterSortBtn.addEventListener('click', () => {
+        filterSortMenu.classList.add('hidden');
+        if (filterSortToggleBtn) filterSortToggleBtn.setAttribute('aria-expanded', 'false');
+      });
+    }
+
+    // Category select change listener to sync color picker
+    const habitCatSelect = document.getElementById('habit-category');
+    if (habitCatSelect) {
+      habitCatSelect.addEventListener('change', () => {
+        const selected = habitCatSelect.options[habitCatSelect.selectedIndex];
+        const color = selected ? selected.getAttribute('data-color') : null;
+        const colorInput = document.getElementById('habit-color');
+        if (color && colorInput) colorInput.value = color;
+      });
+    }
+
+    const editCatSelect = document.getElementById('edit-habit-category');
+    if (editCatSelect) {
+      editCatSelect.addEventListener('change', () => {
+        const selected = editCatSelect.options[editCatSelect.selectedIndex];
+        const color = selected ? selected.getAttribute('data-color') : null;
+        const colorInput = document.getElementById('edit-habit-color');
+        if (color && colorInput) colorInput.value = color;
+      });
+    }
+
   });
 })();

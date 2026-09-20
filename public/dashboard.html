@@ -101,15 +101,103 @@
           </div>
         </div>
 
+        <!-- Dynamic Category & Color Selector (Experimental) -->
+        <div id="category-create-row" class="category-form-row">
+          <div class="category-input-group">
+            <span class="sub-label">Category:</span>
+            <select id="habit-category" class="input cat-select">
+              <option value="">-- Select Category --</option>
+            </select>
+          </div>
+          <div class="category-input-group color-group">
+            <span class="sub-label">Color:</span>
+            <input type="color" id="habit-color" value="#6366F1" class="color-picker-input" title="Custom color indicator">
+          </div>
+        </div>
+
         <button type="submit" class="btn success add-habit-btn">Add Habit</button>
       </form>
     </div>
 
-    <!-- Habits Filter Tabs -->
+    <!-- Habits Filter Tabs & Advanced Category Filter / Sort System -->
     <div class="habits-header-row">
       <div class="filter-tabs">
         <button id="tab-due" class="tab-btn active" type="button">Due Today <span id="due-count" class="tab-badge">0</span></button>
         <button id="tab-all" class="tab-btn" type="button">All Habits <span id="all-count" class="tab-badge">0</span></button>
+      </div>
+
+      <!-- Advanced Filter & Sort Menu Button & Dropdown -->
+      <div id="filter-sort-container" class="filter-sort-container hidden">
+        <div class="filter-sort-dropdown-wrapper">
+          <button type="button" id="filter-sort-toggle-btn" class="filter-sort-btn" aria-haspopup="true" aria-expanded="false" title="Filter by Category or Sort Habits">
+            <svg class="filter-sort-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+            </svg>
+            <span id="filter-sort-btn-label">Filter &amp; Sort</span>
+            <span id="active-filter-badge" class="active-filter-badge hidden">0</span>
+            <span class="dropdown-chevron">▾</span>
+          </button>
+
+          <!-- Filter & Sort Dropdown Menu -->
+          <div id="filter-sort-menu" class="filter-sort-menu hidden">
+            <!-- Filter By Category -->
+            <div class="menu-section">
+              <div class="menu-section-header">
+                <span class="menu-section-title">Filter by Category</span>
+                <span id="selected-category-text" class="menu-section-pill">All</span>
+              </div>
+              <div id="category-filter-chips" class="category-menu-grid">
+                <button type="button" class="cat-menu-item active" data-category="all">
+                  <span class="cat-chip-dot all-dot"></span> All
+                </button>
+              </div>
+            </div>
+
+            <div class="menu-divider"></div>
+
+            <!-- Sort By -->
+            <div class="menu-section">
+              <div class="menu-section-header">
+                <span class="menu-section-title">Sort by</span>
+                <span id="selected-sort-text" class="menu-section-pill">Default</span>
+              </div>
+              <div class="sort-menu-options" id="sort-menu-options">
+                <label class="sort-radio-option">
+                  <input type="radio" name="habit-sort" value="default" checked>
+                  <span class="sort-radio-label">
+                    <span class="sort-icon">📅</span> Default (Schedule Order)
+                  </span>
+                </label>
+                <label class="sort-radio-option">
+                  <input type="radio" name="habit-sort" value="score-desc">
+                  <span class="sort-radio-label">
+                    <span class="sort-icon">⚡</span> Strength Score (High to Low)
+                  </span>
+                </label>
+                <label class="sort-radio-option">
+                  <input type="radio" name="habit-sort" value="streak-desc">
+                  <span class="sort-radio-label">
+                    <span class="sort-icon">🔥</span> Streak Count (Highest First)
+                  </span>
+                </label>
+                <label class="sort-radio-option">
+                  <input type="radio" name="habit-sort" value="alpha-asc">
+                  <span class="sort-radio-label">
+                    <span class="sort-icon">🔤</span> Alphabetical (A → Z)
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            <div class="menu-divider"></div>
+
+            <!-- Footer Actions -->
+            <div class="menu-footer">
+              <button type="button" id="reset-filter-sort-btn" class="menu-reset-btn">Reset All</button>
+              <button type="button" id="apply-filter-sort-btn" class="btn success menu-apply-btn">Apply &amp; Close</button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -195,6 +283,20 @@
           <div class="quant-input-group">
             <span class="sub-label">Unit:</span>
             <input type="text" id="edit-habit-unit" placeholder="e.g. glasses, pages, mins" maxlength="30" class="input quant-unit-input">
+          </div>
+        </div>
+
+        <!-- Edit Dynamic Category & Color Selector (Experimental) -->
+        <div id="edit-category-row" class="category-form-row">
+          <div class="category-input-group">
+            <span class="sub-label">Category:</span>
+            <select id="edit-habit-category" class="input cat-select">
+              <option value="">-- None --</option>
+            </select>
+          </div>
+          <div class="category-input-group color-group">
+            <span class="sub-label">Color:</span>
+            <input type="color" id="edit-habit-color" value="#6366F1" class="color-picker-input" title="Custom color indicator">
           </div>
         </div>
 

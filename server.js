@@ -14,6 +14,7 @@ const pool = require('./config/db');
 const authRoutes = require('./routes/authRoutes');
 const habitRoutes = require('./routes/habitRoutes');
 const analyticsRoutes = require('./routes/analyticsRoutes');
+const categoryRoutes = require('./routes/categoryRoutes');
 
 const app = express();
 const server = http.createServer(app);
@@ -58,6 +59,7 @@ const features = require('./config/features');
 app.use('/api/auth', authRoutes);
 app.use('/api/habits', habitRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/categories', categoryRoutes);
 
 // Feature flags endpoint
 app.get('/api/features', (req, res) => {

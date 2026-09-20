@@ -68,7 +68,7 @@ const initDatabase = async () => {
       );
     `);
 
-    // Ensure frequency, score, and quantifiable columns exist for older schema instances
+    // Ensure frequency, score, quantifiable, and category/tag columns exist for older schema instances
     await pool.query(`
       ALTER TABLE habits ADD COLUMN IF NOT EXISTS frequency VARCHAR(50) DEFAULT 'daily';
       ALTER TABLE habits ADD COLUMN IF NOT EXISTS frequency_type VARCHAR(50) DEFAULT 'daily';
@@ -76,21 +76,23 @@ const initDatabase = async () => {
       ALTER TABLE habits ADD COLUMN IF NOT EXISTS score NUMERIC(5, 2) DEFAULT 0.0;
       ALTER TABLE habits ADD COLUMN IF NOT EXISTS target_per_day INT DEFAULT 1;
       ALTER TABLE habits ADD COLUMN IF NOT EXISTS unit VARCHAR(50) DEFAULT '';
+      ALTER TABLE habits ADD COLUMN IF NOT EXISTS tag VARCHAR(50) DEFAULT '';
+      ALTER TABLE habits ADD COLUMN IF NOT EXISTS color_hex VARCHAR(7) DEFAULT '';
       ALTER TABLE streaks ADD COLUMN IF NOT EXISTS score NUMERIC(5, 2) DEFAULT 0.0;
       ALTER TABLE check_ins ADD COLUMN IF NOT EXISTS count INT DEFAULT 1;
     `);
 
-    // Seed default categories if empty
-    const { rows } = await pool.query('SELECT COUNT(*) FROM categories');
-    if (parseInt(rows[0].count, 10) === 0) {
-      await pool.query(`
-        INSERT INTO categories (name, color_hex, icon_name) VALUES
-        ('Health & Fitness', '#10B981', 'activity'),
-        ('Productivity', '#6366F1', 'check-square'),
-        ('Mindfulness', '#F59E0B', 'sun'),
-        ('Learning', '#EC4899', 'book-open');
-      `);
-    }
+    // Seed standard categories if missing
+    await pool.query(`
+      INSERT INTO categories (name, color_hex, icon_name) VALUES
+      ('Health', '#10B981', 'activity'),
+      ('Code', '#6366F1', 'terminal'),
+      ('Mind', '#F59E0B', 'sun'),
+      ('Life', '#EC4899', 'heart'),
+      ('Productivity', '#06B6D4', 'check-square'),
+      ('Learning', '#8B5CF6', 'book-open')
+      ON CONFLICT (name) DO NOTHING;
+    `);
     console.log('PostgreSQL database initialized successfully.');
   } catch (err) {
     console.error('Database initialization error:', err);
