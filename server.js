@@ -16,6 +16,10 @@ const habitRoutes = require('./routes/habitRoutes');
 const analyticsRoutes = require('./routes/analyticsRoutes');
 const categoryRoutes = require('./routes/categoryRoutes');
 
+// Import Middleware
+const cookieParser = require('cookie-parser');
+const gatekeeper = require('./middleware/gatekeeper');
+
 const app = express();
 const server = http.createServer(app);
 
@@ -50,6 +54,11 @@ app.set('io', io);
 // --- GLOBAL MIDDLEWARE ---
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
+
+// Outer Network Gatekeeper Barrier (Temporary Site-Wide Access Gate)
+app.use(gatekeeper);
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Feature Flags Configuration
@@ -91,6 +100,6 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}`.blue.bold);
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server running at http://0.0.0.0:${PORT}`.blue.bold);
 });
