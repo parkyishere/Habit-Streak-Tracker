@@ -108,6 +108,13 @@ body { background-color: #f4f6f9; color: #333; display: flex; flex-direction: co
   aspect-ratio: 1;
   background-color: #ebedf0;
   border-radius: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 500;
+  color: #475569;
+  user-select: none;
 }
 
 .calendar-day.empty-cell {
@@ -116,11 +123,25 @@ body { background-color: #f4f6f9; color: #333; display: flex; flex-direction: co
 
 .calendar-day.active {
   background-color: #2ea44f;
+  color: #ffffff;
+}
+
+.calendar-day.missed {
+  background-color: #f87171;
+  color: #ffffff;
 }
 
 .calendar-day.rest-day {
   background-color: #dbeafe;
   border: 1px dashed #93c5fd;
+  color: #1e40af;
+}
+
+.calendar-day.pre-creation {
+  background-color: #f1f5f9;
+  color: #cbd5e1;
+  opacity: 0.4;
+  border: none;
 }
 
 /* Habit Card Layout Improvements */
@@ -461,5 +482,40 @@ body { background-color: #f4f6f9; color: #333; display: flex; flex-direction: co
   border-radius: 8px;
   color: #64748b;
   font-size: 1rem;
+}
+
+/* Inline Expanded Detail Section */
+.habits-grid #habit-detail-section,
+#habit-detail-section {
+  width: 100%;
+  margin: 0;
+  box-sizing: border-box;
+}
+
+/* Rest Day State Button */
+.btn.rest-day-btn {
+  background-color: #f1f5f9;
+  color: #64748b;
+  border: 1px dashed #cbd5e1;
+  cursor: not-allowed;
+  opacity: 0.85;
+}
+
+.btn.rest-day-btn:hover {
+  background-color: #f1f5f9;
+  color: #64748b;
+}
+
+/* Calendar Days Clickable */
+.calendar-day.active,
+.calendar-day.missed {
+  cursor: pointer;
+  transition: transform 0.1s ease, filter 0.1s ease;
+}
+
+.calendar-day.active:hover,
+.calendar-day.missed:hover {
+  filter: brightness(1.1);
+  transform: scale(1.12);
 }
 

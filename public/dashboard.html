@@ -91,7 +91,10 @@
     <!-- Inline Details & GitHub Calendar Section -->
     <div id="habit-detail-section" class="card hidden">
       <div class="detail-header">
-        <h3>Check-in Activity Grid</h3>
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <h3>Check-in Activity Grid</h3>
+          <select id="heatmap-year-select" class="input" style="width: auto; padding: 4px 8px; font-size: 13px; margin: 0;"></select>
+        </div>
         <div class="detail-actions">
           <button id="detail-edit-btn" class="btn secondary">Edit</button>
           <button id="detail-delete-btn" class="btn danger">Delete</button>

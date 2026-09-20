@@ -51,9 +51,41 @@
     }
   }
 
+  function getLocalDateStr(dateInput = new Date()) {
+    if (!dateInput) return '';
+    if (typeof dateInput === 'string') {
+      const match = dateInput.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (match) {
+        return `${match[1]}-${match[2]}-${match[3]}`;
+      }
+    }
+    const d = new Date(dateInput);
+    if (isNaN(d.getTime())) return '';
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  function parseLocalDate(dateStr) {
+    if (!dateStr) return new Date();
+    if (dateStr instanceof Date) {
+      const d = new Date(dateStr);
+      d.setHours(0, 0, 0, 0);
+      return d;
+    }
+    const match = String(dateStr).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (match) {
+      return new Date(parseInt(match[1], 10), parseInt(match[2], 10) - 1, parseInt(match[3], 10), 0, 0, 0, 0);
+    }
+    const d = new Date(dateStr);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }
+
   async function loadHabits() {
     try {
-      const today = new Date().toISOString().split('T')[0];
+      const today = getLocalDateStr(new Date());
       const res = await fetch(`/api/habits?date=${today}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -105,6 +137,7 @@
       const isDue = Boolean(habit.is_due_today);
       const card = document.createElement('div');
       card.className = `habit-card ${!isDue ? 'off-day' : ''}`;
+      card.setAttribute('data-habit-id', habit.id);
 
       const dueBadge = isDue
         ? `<span class="badge due-today">Due Today</span>`
@@ -112,11 +145,13 @@
 
       const freqLabel = habit.frequency_label || habit.frequency || 'Daily';
 
-      let checkinBtnText = 'Check In Today';
-      if (isCompleted) {
-        checkinBtnText = 'Uncheck Today';
-      } else if (!isDue) {
-        checkinBtnText = 'Check In (Rest Day)';
+      let actionBtnHtml = '';
+      if (!isDue) {
+        actionBtnHtml = `<button class="btn rest-day-btn" disabled>Rest Day</button>`;
+      } else if (isCompleted) {
+        actionBtnHtml = `<button class="btn danger checkin-btn" data-id="${habit.id}">Uncheck Today</button>`;
+      } else {
+        actionBtnHtml = `<button class="btn success checkin-btn" data-id="${habit.id}">Check In Today</button>`;
       }
 
       card.innerHTML = `
@@ -138,12 +173,15 @@
         </div>
         <p class="habit-desc">${escapeHtml(habit.description || 'No description provided')}</p>
         <div class="streak-badge">Current Streak: ${habit.current_streak || 0} days | Best: ${habit.longest_streak || 0} days</div>
-        <button class="btn ${isCompleted ? 'danger' : 'success'} checkin-btn" data-id="${habit.id}">
-          ${checkinBtnText}
-        </button>
+        ${actionBtnHtml}
       `;
 
       habitsList.appendChild(card);
+
+      const activeId = detailSection ? detailSection.getAttribute('data-active-id') : null;
+      if (detailSection && !detailSection.classList.contains('hidden') && String(activeId) === String(habit.id)) {
+        card.insertAdjacentElement('afterend', detailSection);
+      }
     });
   }
 
@@ -167,11 +205,13 @@
 
     if (freqType === 'daily') return true;
 
+    const targetDate = parseLocalDate(dateObj);
+
     if (freqType === 'specific_days') {
       const days = Array.isArray(freqValue) ? freqValue : [];
       const dayMap = { sunday: 0, monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6, sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 };
       const normalizedDays = days.map(d => typeof d === 'string' ? (dayMap[d.toLowerCase()] ?? parseInt(d, 10)) : Number(d));
-      return normalizedDays.includes(dateObj.getDay());
+      return normalizedDays.includes(targetDate.getDay());
     }
 
     if (freqType === 'interval') {
@@ -180,11 +220,9 @@
       else if (freqValue && typeof freqValue === 'object') interval = freqValue.interval_days || freqValue.interval || 1;
       if (interval <= 1) return true;
 
-      const anchor = new Date(habit.created_at || dateObj);
-      anchor.setHours(0, 0, 0, 0);
-      const target = new Date(dateObj);
-      target.setHours(0, 0, 0, 0);
-      const diffDays = Math.round((target - anchor) / (1000 * 60 * 60 * 24));
+      const anchor = parseLocalDate(habit.created_at || targetDate);
+      const diffMs = targetDate.getTime() - anchor.getTime();
+      const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
       if (diffDays < 0) return false;
       return diffDays % interval === 0;
     }
@@ -192,7 +230,9 @@
     return true;
   }
 
-  function renderCalendar(checkInDates, habit = null) {
+  let activeHistoryData = null;
+
+  function renderCalendar(checkInDates, habit = null, selectedYear = null) {
     const calendarContainer = document.getElementById('github-calendar');
     if (!calendarContainer) return;
     calendarContainer.innerHTML = '';
@@ -200,15 +240,18 @@
     const dateSet = new Set();
     if (checkInDates) {
       checkInDates.forEach(d => {
-        const s = typeof d === 'string' ? d.split('T')[0] : new Date(d).toISOString().split('T')[0];
-        dateSet.add(s);
+        const s = getLocalDateStr(d);
+        if (s) dateSet.add(s);
       });
     }
 
     const today = new Date();
+    const todayNormalized = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0, 0);
+    const targetYear = selectedYear ? parseInt(selectedYear, 10) : today.getFullYear();
+
     const months = [];
-    for (let m = 11; m >= 0; m--) {
-      months.push(new Date(today.getFullYear(), today.getMonth() - m, 1));
+    for (let m = 0; m < 12; m++) {
+      months.push(new Date(targetYear, m, 1, 0, 0, 0, 0));
     }
 
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -216,6 +259,11 @@
 
     const wrapper = document.createElement('div');
     wrapper.className = 'heatmap-months-wrapper';
+
+    let createdDate = null;
+    if (habit && habit.created_at) {
+      createdDate = parseLocalDate(habit.created_at);
+    }
 
     months.forEach(monthDate => {
       const year = monthDate.getFullYear();
@@ -250,25 +298,29 @@
 
       const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
       for (let dayNum = 1; dayNum <= daysInMonth; dayNum++) {
-        const d = new Date(year, monthIndex, dayNum);
-        const yyyy = d.getFullYear();
-        const mm = String(d.getMonth() + 1).padStart(2, '0');
-        const dd = String(d.getDate()).padStart(2, '0');
-        const dateStr = `${yyyy}-${mm}-${dd}`;
+        const cellDate = new Date(year, monthIndex, dayNum, 0, 0, 0, 0);
+        const dateStr = getLocalDateStr(cellDate);
 
         const square = document.createElement('div');
         square.className = 'calendar-day';
         square.setAttribute('data-date', dateStr);
+        square.innerText = dayNum;
 
         const isCompleted = dateSet.has(dateStr);
-        const isDue = isHabitDueOnDate(habit, d);
+        const isDue = isHabitDueOnDate(habit, cellDate);
 
-        if (isCompleted) {
+        if (createdDate && cellDate.getTime() < createdDate.getTime()) {
+          square.classList.add('pre-creation');
+          square.title = `${dateStr}: Pre-creation`;
+        } else if (isCompleted) {
           square.classList.add('active');
           square.title = `${dateStr}: Completed`;
         } else if (!isDue) {
           square.classList.add('rest-day');
           square.title = `${dateStr}: Rest day`;
+        } else if (cellDate.getTime() < todayNormalized.getTime()) {
+          square.classList.add('missed');
+          square.title = `${dateStr}: Missed`;
         } else {
           square.title = `${dateStr}: No activity`;
         }
@@ -291,12 +343,42 @@
       const data = await res.json();
 
       if (data.success) {
-        renderCalendar(data.checkInDates, data.habit);
+        activeHistoryData = data;
+
+        const createdYear = data.habit.created_at ? parseLocalDate(data.habit.created_at).getFullYear() : new Date().getFullYear();
+        const currentYear = new Date().getFullYear();
+
+        const yearSelect = document.getElementById('heatmap-year-select');
+        let selectedYear = currentYear;
+
+        if (yearSelect) {
+          const prevVal = parseInt(yearSelect.value, 10);
+          yearSelect.innerHTML = '';
+          for (let y = currentYear; y >= createdYear; y--) {
+            const opt = document.createElement('option');
+            opt.value = y;
+            opt.innerText = y;
+            yearSelect.appendChild(opt);
+          }
+          if (prevVal && prevVal >= createdYear && prevVal <= currentYear) {
+            selectedYear = prevVal;
+          }
+          yearSelect.value = selectedYear;
+        }
+
+        renderCalendar(data.checkInDates, data.habit, selectedYear);
 
         document.getElementById('detail-edit-btn').onclick = () => openEditModal(data.habit);
         document.getElementById('detail-delete-btn').onclick = () => deleteHabit(data.habit.id);
 
         detailSection.setAttribute('data-active-id', habitId);
+
+        // Dynamically insert directly after this specific habit's card
+        const card = habitsList ? habitsList.querySelector(`.habit-card[data-habit-id="${habitId}"]`) : null;
+        if (card) {
+          card.insertAdjacentElement('afterend', detailSection);
+        }
+
         detailSection.classList.remove('hidden');
         detailSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       }
@@ -348,14 +430,20 @@
     editModal.classList.remove('hidden');
   }
 
-  async function checkIn(habitId) {
+  async function checkIn(habitId, dateStr = null) {
     try {
+      const payload = {};
+      if (dateStr) {
+        payload.date = dateStr;
+      }
+
       const res = await fetch(`/api/habits/${habitId}/checkin`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
-        }
+        },
+        body: JSON.stringify(payload)
       });
 
       const data = await res.json();
@@ -447,6 +535,15 @@
       return;
     }
 
+    if (target.classList.contains('calendar-day') && !target.classList.contains('empty-cell')) {
+      const dateStr = target.getAttribute('data-date');
+      const activeId = detailSection.getAttribute('data-active-id');
+      if (activeId && dateStr && (target.classList.contains('active') || target.classList.contains('missed'))) {
+        checkIn(activeId, dateStr);
+      }
+      return;
+    }
+
     if (target.classList.contains('delete-btn')) {
       const id = target.getAttribute('data-id');
       deleteHabit(id);
@@ -473,6 +570,15 @@
     // Toggle controls for create form and edit modal
     setupFrequencySelectToggle('habit-frequency', 'freq-days-container', 'freq-interval-container');
     setupFrequencySelectToggle('edit-habit-frequency', 'edit-freq-days-container', 'edit-freq-interval-container');
+
+    const yearSelect = document.getElementById('heatmap-year-select');
+    if (yearSelect) {
+      yearSelect.addEventListener('change', () => {
+        if (activeHistoryData && activeHistoryData.habit) {
+          renderCalendar(activeHistoryData.checkInDates, activeHistoryData.habit, parseInt(yearSelect.value, 10));
+        }
+      });
+    }
 
     // Tab buttons
     const tabDue = document.getElementById('tab-due');

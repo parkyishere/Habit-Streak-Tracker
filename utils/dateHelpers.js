@@ -23,16 +23,27 @@ const FULL_DAY_MAP = {
 
 /**
  * Normalizes any valid date input into a local Date instance zeroed to midnight.
+ * Strictly uses local date components (getFullYear(), getMonth(), getDate()) to prevent UTC shift.
  * @param {Date|string|number} dateInput 
  * @returns {Date}
  */
 function normalizeDate(dateInput = new Date()) {
+  if (!dateInput) {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+  }
+  if (typeof dateInput === 'string') {
+    const match = dateInput.trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (match) {
+      return new Date(parseInt(match[1], 10), parseInt(match[2], 10) - 1, parseInt(match[3], 10), 0, 0, 0, 0);
+    }
+  }
   const d = new Date(dateInput);
   if (isNaN(d.getTime())) {
-    return new Date();
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
   }
-  d.setHours(0, 0, 0, 0);
-  return d;
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
 }
 
 /**
@@ -163,14 +174,17 @@ function formatFrequencyLabel(frequencyType, frequencyValue) {
 }
 
 /**
- * Returns YYYY-MM-DD string formatted in local time.
+ * Returns YYYY-MM-DD string formatted strictly using local date components.
  * @param {Date|string|number} dateInput 
  * @returns {string}
  */
 function getLocalDateStr(dateInput = new Date()) {
   if (!dateInput) return '';
-  if (typeof dateInput === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateInput.trim())) {
-    return dateInput.trim();
+  if (typeof dateInput === 'string') {
+    const match = dateInput.trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (match) {
+      return `${match[1]}-${match[2]}-${match[3]}`;
+    }
   }
   const d = new Date(dateInput);
   if (isNaN(d.getTime())) return '';

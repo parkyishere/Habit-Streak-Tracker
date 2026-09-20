@@ -4,7 +4,7 @@ const { isHabitDueToday, formatFrequencyLabel, normalizeDate, calculateStreakMet
 // Get All Habits for Logged-In User
 exports.getHabits = async (req, res) => {
   const userId = req.user.id;
-  const targetDateStr = req.query.date || new Date().toISOString().split('T')[0];
+  const targetDateStr = req.query.date || getLocalDateStr(new Date());
   const targetDate = normalizeDate(targetDateStr);
 
   try {
@@ -166,7 +166,7 @@ exports.getHabitHistory = async (req, res) => {
 exports.toggleCheckIn = async (req, res) => {
   const { habitId } = req.params;
   const userId = req.user.id;
-  const checkInDate = getLocalDateStr(new Date());
+  const checkInDate = req.body && req.body.date ? getLocalDateStr(req.body.date) : getLocalDateStr(new Date());
 
   try {
     const { rows: habitRows } = await pool.query('SELECT * FROM habits WHERE id = $1 AND user_id = $2', [habitId, userId]);
