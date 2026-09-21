@@ -17,7 +17,12 @@
   let currentSortOption = 'default'; // 'default' | 'score-desc' | 'streak-desc' | 'alpha-asc'
   let cachedHabits = [];
   let cachedCategories = [];
-  let appFeatures = { EXPERIMENT_WEEKLY_TARGETS: false, EXPERIMENT_CATEGORIES_TAGS: false };
+  let appFeatures = {
+    EXPERIMENT_WEEKLY_TARGETS: false,
+    EXPERIMENT_CATEGORIES_TAGS: false,
+    EXPERIMENT_QUANTIFIABLE_HABITS: false,
+    EXPERIMENT_KPI_DASHBOARD: true
+  };
 
   async function loadFeatures() {
     try {
@@ -202,6 +207,13 @@
     if (isCats) {
       loadCategories();
     }
+
+    // Summary KPI Dashboard feature toggle
+    const isKpi = appFeatures.EXPERIMENT_KPI_DASHBOARD !== false;
+    const kpiContainer = document.getElementById('kpi-summary-container');
+    const legacyStats = document.getElementById('stats-grid-legacy');
+    if (kpiContainer) kpiContainer.classList.toggle('hidden', !isKpi);
+    if (legacyStats) legacyStats.style.display = isKpi ? 'none' : 'grid';
   }
 
   function showToast(message) {
@@ -240,10 +252,13 @@
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
-      if (data.success) {
-        document.getElementById('stat-habits').innerText = data.stats.totalHabits;
-        document.getElementById('stat-checkins').innerText = data.stats.totalCheckIns;
-        document.getElementById('stat-max-streak').innerText = `${data.stats.maxStreak} days`;
+      if (data.success && data.stats) {
+        const habitsEl = document.getElementById('stat-habits');
+        if (habitsEl) habitsEl.innerText = data.stats.totalHabits;
+        const checkinsEl = document.getElementById('stat-checkins');
+        if (checkinsEl) checkinsEl.innerText = data.stats.totalCheckIns;
+        const streakEl = document.getElementById('stat-max-streak');
+        if (streakEl) streakEl.innerText = `${data.stats.maxStreak} days`;
         const avgScoreEl = document.getElementById('stat-avg-score');
         if (avgScoreEl) {
           avgScoreEl.innerText = `${(data.stats.avgScore || 0).toFixed(1)}%`;
@@ -251,6 +266,106 @@
       }
     } catch (err) {
       console.error('Failed to load stats:', err);
+    }
+  }
+
+  async function loadKpiSummary() {
+    try {
+      const res = await fetch('/api/kpi-summary', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success && data.kpis) {
+        renderKpiWidgets(data.kpis);
+      }
+    } catch (err) {
+      console.warn('Failed to load KPI summary:', err);
+    }
+  }
+
+  function renderKpiWidgets(kpis) {
+    if (!kpis) return;
+
+    // 1. Today's Progress
+    const completionRateEl = document.getElementById('kpi-completion-rate');
+    if (completionRateEl && kpis.today) {
+      completionRateEl.innerText = `${kpis.today.completion_rate}%`;
+    }
+    const completionFractionEl = document.getElementById('kpi-completion-fraction');
+    if (completionFractionEl && kpis.today) {
+      completionFractionEl.innerText = `${kpis.today.completed} / ${kpis.today.total_due}`;
+    }
+    const progressBarFill = document.getElementById('kpi-progress-bar-fill');
+    if (progressBarFill && kpis.today) {
+      progressBarFill.style.width = `${Math.min(100, Math.max(0, kpis.today.completion_rate))}%`;
+    }
+    const completionNoteEl = document.getElementById('kpi-completion-note');
+    if (completionNoteEl && kpis.today) {
+      if (kpis.today.total_due === 0) {
+        completionNoteEl.innerText = 'No habits scheduled for today';
+      } else if (kpis.today.pending === 0) {
+        completionNoteEl.innerText = 'All daily habits completed! 🎉';
+      } else {
+        completionNoteEl.innerText = `${kpis.today.pending} habit${kpis.today.pending === 1 ? '' : 's'} pending today`;
+      }
+    }
+    const completionBadgeEl = document.getElementById('kpi-completion-badge');
+    if (completionBadgeEl && kpis.today) {
+      if (kpis.today.total_due > 0 && kpis.today.pending === 0) {
+        completionBadgeEl.innerText = 'Completed';
+        completionBadgeEl.className = 'kpi-status-pill pill-completed';
+      } else if (kpis.today.total_due === 0) {
+        completionBadgeEl.innerText = 'Clear';
+        completionBadgeEl.className = 'kpi-status-pill pill-neutral';
+      } else {
+        completionBadgeEl.innerText = 'In Progress';
+        completionBadgeEl.className = 'kpi-status-pill pill-neutral';
+      }
+    }
+
+    // 2. Active Streaks
+    const activeStreaksEl = document.getElementById('kpi-active-streaks');
+    if (activeStreaksEl && kpis.streaks) {
+      activeStreaksEl.innerText = kpis.streaks.active_count;
+    }
+    const bestStreakEl = document.getElementById('kpi-best-streak');
+    if (bestStreakEl && kpis.streaks) {
+      bestStreakEl.innerText = `${kpis.streaks.best_streak}d`;
+    }
+    const totalStreakDaysEl = document.getElementById('kpi-total-streak-days');
+    if (totalStreakDaysEl && kpis.streaks) {
+      totalStreakDaysEl.innerText = `${kpis.streaks.total_streak_days}d`;
+    }
+
+    // 3. Habit Strength
+    const avgScoreEl = document.getElementById('kpi-avg-score');
+    if (avgScoreEl && kpis.score) {
+      avgScoreEl.innerText = `${(Number(kpis.score.avg_score) || 0).toFixed(1)}%`;
+    }
+    const scoreTierBadgeEl = document.getElementById('kpi-score-tier-badge');
+    if (scoreTierBadgeEl && kpis.score) {
+      scoreTierBadgeEl.innerText = kpis.score.tier || 'Starting';
+      scoreTierBadgeEl.className = `score-tier-badge ${kpis.score.tier_class || 'tier-starting'}`;
+    }
+    if (kpis.score && kpis.score.distribution) {
+      const dotM = document.getElementById('kpi-dot-mastered');
+      if (dotM) dotM.innerText = `${kpis.score.distribution.mastered || 0} M`;
+      const dotS = document.getElementById('kpi-dot-strong');
+      if (dotS) dotS.innerText = `${kpis.score.distribution.strong || 0} S`;
+      const dotB = document.getElementById('kpi-dot-building');
+      if (dotB) dotB.innerText = `${kpis.score.distribution.building || 0} B`;
+      const dotSt = document.getElementById('kpi-dot-starting');
+      if (dotSt) dotSt.innerText = `${kpis.score.distribution.starting || 0} St`;
+    }
+
+    // 4. Total Habits & Momentum
+    const totalHabitsEl = document.getElementById('kpi-total-habits');
+    if (totalHabitsEl && kpis.habits) {
+      totalHabitsEl.innerText = kpis.habits.total;
+    }
+    const totalCheckinsEl = document.getElementById('kpi-total-checkins');
+    if (totalCheckinsEl && kpis.habits) {
+      totalCheckinsEl.innerText = kpis.habits.total_check_ins;
     }
   }
 
@@ -841,6 +956,7 @@
       if (res.ok && data.success) {
         await loadHabits();
         await loadStats();
+        await loadKpiSummary();
 
         // Refresh active calendar immediately if open for this habit
         const activeId = detailSection.getAttribute('data-active-id');
@@ -868,6 +984,7 @@
         detailSection.classList.add('hidden');
         await loadHabits();
         await loadStats();
+        await loadKpiSummary();
       }
     } catch (err) {
       console.error('Error deleting habit:', err);
@@ -982,6 +1099,7 @@
     await loadFeatures();
     await loadCategories();
     await loadStats();
+    await loadKpiSummary();
     await loadHabits();
     await loadWeeklyTargets();
 
@@ -1114,6 +1232,7 @@
 
             await loadHabits();
             await loadStats();
+            await loadKpiSummary();
             showToast(`Habit "${title}" created successfully!`);
           } else {
             alert(data.error || 'Failed to create habit');
@@ -1199,6 +1318,7 @@
             editModal.classList.add('hidden');
             await loadHabits();
             await loadStats();
+            await loadKpiSummary();
 
             // Refresh active details view if it matches this habit
             const activeId = detailSection.getAttribute('data-active-id');
@@ -1333,4 +1453,6 @@
   window.loadCategories = loadCategories;
   window.openCreateModal = openCreateModal;
   window.populateCategoryDropdowns = populateCategoryDropdowns;
+  window.loadKpiSummary = loadKpiSummary;
+  window.renderKpiWidgets = renderKpiWidgets;
 })();

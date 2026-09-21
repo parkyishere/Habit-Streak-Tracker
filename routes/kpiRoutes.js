@@ -1,11 +1,11 @@
 const express = require('express');
 const router = express.Router();
-const analyticsController = require('../controllers/analyticsController');
 const kpiController = require('../controllers/kpiController');
 const authMiddleware = require('../middleware/authMiddleware');
 
 router.use(authMiddleware);
-router.get('/', analyticsController.getStats);
-router.get('/kpi-summary', kpiController.getKpiSummary);
+
+// GET /api/kpi-summary (or /api/analytics/kpi-summary)
+router.get('/', kpiController.getKpiSummary);
 
 module.exports = router;

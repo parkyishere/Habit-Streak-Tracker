@@ -10,7 +10,9 @@ const features = {
   // Multiple Check-Ins per Day (Quantifiable Target Logging e.g. 8 glasses of water)
   EXPERIMENT_QUANTIFIABLE_HABITS: process.env.EXPERIMENT_QUANTIFIABLE_HABITS !== 'false',
   // Habit Categories, Tags, and Dashboard Filtering
-  EXPERIMENT_CATEGORIES_TAGS: process.env.EXPERIMENT_CATEGORIES_TAGS !== 'false'
+  EXPERIMENT_CATEGORIES_TAGS: process.env.EXPERIMENT_CATEGORIES_TAGS !== 'false',
+  // Summary KPI Dashboard: Lightweight Top-Level Statistics
+  EXPERIMENT_KPI_DASHBOARD: process.env.EXPERIMENT_KPI_DASHBOARD !== 'false'
 };
 
 module.exports = features;

@@ -1528,4 +1528,262 @@ body { background-color: #f4f6f9; color: #333; display: flex; flex-direction: co
   cursor: default;
 }
 
+/* ==========================================================================
+   Habitify-Inspired KPI Summary Dashboard
+   ========================================================================== */
+.kpi-summary-container {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+@media (max-width: 960px) {
+  .kpi-summary-container {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 540px) {
+  .kpi-summary-container {
+    grid-template-columns: 1fr;
+  }
+}
+
+.kpi-card {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 18px 20px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04), 0 1px 2px rgba(15, 23, 42, 0.02);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.kpi-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08), 0 2px 4px rgba(15, 23, 42, 0.03);
+  border-color: #cbd5e1;
+}
+
+.kpi-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  opacity: 0.9;
+}
+
+.kpi-card-progress::before {
+  background: linear-gradient(90deg, #10b981, #059669);
+}
+
+.kpi-card-streaks::before {
+  background: linear-gradient(90deg, #f59e0b, #ea580c);
+}
+
+.kpi-card-score::before {
+  background: linear-gradient(90deg, #6366f1, #3b82f6);
+}
+
+.kpi-card-habits::before {
+  background: linear-gradient(90deg, #06b6d4, #0284c7);
+}
+
+.kpi-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.kpi-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.kpi-icon-pill {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-progress {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.icon-streak {
+  background: #fffbeb;
+  color: #d97706;
+}
+
+.icon-score {
+  background: #eef2ff;
+  color: #4f46e5;
+}
+
+.icon-habits {
+  background: #f0fdf4;
+  color: #0284c7;
+}
+
+.kpi-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #475569;
+  letter-spacing: 0.2px;
+}
+
+.kpi-status-pill {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 20px;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.pill-neutral {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.pill-completed {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.pill-streak {
+  background: #ffedd5;
+  color: #c2410c;
+}
+
+.pill-momentum {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.kpi-card-body {
+  margin-bottom: 12px;
+}
+
+.kpi-metric-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.kpi-value {
+  font-size: 1.85rem;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.5px;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.kpi-fraction,
+.kpi-unit {
+  font-size: 0.85rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.kpi-progress-bar-bg {
+  width: 100%;
+  height: 6px;
+  background: #f1f5f9;
+  border-radius: 999px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.kpi-progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #10b981, #059669);
+  border-radius: 999px;
+  transition: width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.kpi-spark-meta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.kpi-stat-chip {
+  font-size: 0.75rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 2px 6px;
+  border-radius: 6px;
+  color: #475569;
+}
+
+.kpi-stat-chip strong {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.kpi-tier-dots {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.tier-dot {
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 4px;
+  letter-spacing: 0.2px;
+}
+
+.dot-mastered {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.dot-strong {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.dot-building {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.dot-starting {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.kpi-card-footer {
+  border-top: 1px solid #f1f5f9;
+  padding-top: 8px;
+  margin-top: auto;
+}
+
+.kpi-meta-text {
+  font-size: 0.76rem;
+  color: #94a3b8;
+  font-weight: 500;
+  display: block;
+}
+
 
