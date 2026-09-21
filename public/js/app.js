@@ -1,4 +1,6 @@
-const API_URL = "http://localhost:5000";
+const API_URL = (typeof window !== 'undefined' && window.location && window.location.origin) 
+  ? window.location.origin 
+  : '';
 // Clean SPA Router
 function navigateTo(pageName) {
   // Protect dashboard if no session token
@@ -65,6 +67,7 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
   const res = await fetch(`${API_URL}/api/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'same-origin',
     body: JSON.stringify({ email, password })
   });
 
@@ -88,6 +91,7 @@ document.getElementById('register-form').addEventListener('submit', async (e) =>
   const res = await fetch(`${API_URL}/api/auth/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'same-origin',
     body: JSON.stringify({ username, email, password })
   });
 

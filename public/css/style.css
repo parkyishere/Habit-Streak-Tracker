@@ -420,6 +420,7 @@ body { background-color: #f4f6f9; color: #333; display: flex; flex-direction: co
   background: #e2e8f0;
   padding: 4px;
   border-radius: 8px;
+  pointer-events: auto;
 }
 
 .tab-btn {
@@ -435,6 +436,14 @@ body { background-color: #f4f6f9; color: #333; display: flex; flex-direction: co
   align-items: center;
   gap: 6px;
   transition: all 0.2s;
+  pointer-events: auto;
+  user-select: none;
+}
+
+#tab-all,
+#tab-due {
+  pointer-events: auto;
+  cursor: pointer;
 }
 
 .tab-btn.active {
@@ -449,6 +458,7 @@ body { background-color: #f4f6f9; color: #333; display: flex; flex-direction: co
   padding: 2px 7px;
   border-radius: 10px;
   font-size: 0.75rem;
+  pointer-events: none;
 }
 
 .tab-btn.active .tab-badge {
@@ -1381,6 +1391,7 @@ body { background-color: #f4f6f9; color: #333; display: flex; flex-direction: co
   gap: 6px;
   transition: all 0.15s ease;
   user-select: none;
+  pointer-events: auto;
 }
 
 .cat-menu-item:hover {
@@ -1403,6 +1414,7 @@ body { background-color: #f4f6f9; color: #333; display: flex; flex-direction: co
   border-radius: 50%;
   display: inline-block;
   flex-shrink: 0;
+  pointer-events: none;
 }
 
 .cat-chip-dot.all-dot {

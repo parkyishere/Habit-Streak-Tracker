@@ -1,5 +1,5 @@
 (() => {
-  const socket = io("http://localhost:5000");
+  const socket = typeof io !== 'undefined' ? io() : null;
   const token = localStorage.getItem('token');
 
   if (!token) {
@@ -29,11 +29,28 @@
     } catch (err) {
       console.warn('Could not load feature flags:', err);
     }
-    applyFeatureToggles();
+    await applyFeatureToggles();
   }
 
-  async function loadCategories() {
-    if (!appFeatures.EXPERIMENT_CATEGORIES_TAGS) return;
+  async function loadWeeklyTargets() {
+    try {
+      if (appFeatures.EXPERIMENT_WEEKLY_TARGETS) {
+        // Weekly targets progress is integrated into habits returned by /api/habits.
+        // Re-render if habits are already loaded to update weekly target badges/bars.
+        if (cachedHabits && cachedHabits.length > 0) {
+          renderHabitsList();
+        }
+      }
+    } catch (err) {
+      console.warn('Could not load weekly targets:', err);
+    }
+  }
+
+  async function loadCategories(force = false) {
+    if (!force && cachedCategories && cachedCategories.length > 0) {
+      populateCategoryDropdowns();
+      return;
+    }
     try {
       const res = await fetch('/api/categories', {
         headers: { Authorization: `Bearer ${token}` }
@@ -53,30 +70,42 @@
     const createSelect = document.getElementById('habit-category');
     const editSelect = document.getElementById('edit-habit-category');
 
-    if (createSelect) {
-      const currentVal = createSelect.value;
-      createSelect.innerHTML = '<option value="">-- Select Category --</option>';
+    const updateSelect = (selectEl, defaultPlaceholder) => {
+      if (!selectEl) return;
+      const currentVal = selectEl.value;
+      selectEl.innerHTML = `<option value="">${defaultPlaceholder}</option>`;
       cachedCategories.forEach(cat => {
         const opt = document.createElement('option');
         opt.value = cat.id;
         opt.innerText = cat.name;
         opt.setAttribute('data-color', cat.color_hex || '#6366F1');
-        createSelect.appendChild(opt);
+        selectEl.appendChild(opt);
       });
-      if (currentVal) createSelect.value = currentVal;
-    }
+      if (currentVal && cachedCategories.some(c => String(c.id) === String(currentVal))) {
+        selectEl.value = currentVal;
+      }
+    };
 
-    if (editSelect) {
-      const currentVal = editSelect.value;
-      editSelect.innerHTML = '<option value="">-- None --</option>';
-      cachedCategories.forEach(cat => {
-        const opt = document.createElement('option');
-        opt.value = cat.id;
-        opt.innerText = cat.name;
-        opt.setAttribute('data-color', cat.color_hex || '#6366F1');
-        editSelect.appendChild(opt);
-      });
-      if (currentVal) editSelect.value = currentVal;
+    updateSelect(createSelect, '-- Select Category --');
+    updateSelect(editSelect, '-- None --');
+
+    // Also populate any other matching category selects in the DOM
+    document.querySelectorAll('.cat-select').forEach(sel => {
+      if (sel !== createSelect && sel !== editSelect) {
+        updateSelect(sel, '-- Select Category --');
+      }
+    });
+  }
+
+  async function openCreateModal() {
+    if (!cachedCategories || cachedCategories.length === 0) {
+      await loadCategories(true);
+    } else {
+      populateCategoryDropdowns();
+    }
+    const createModal = document.getElementById('create-modal') || document.getElementById('new-habit-modal');
+    if (createModal) {
+      createModal.classList.remove('hidden');
     }
   }
 
@@ -85,7 +114,7 @@
     if (!chipsContainer) return;
 
     chipsContainer.innerHTML = `
-      <button type="button" class="cat-menu-item ${currentCategoryFilter === 'all' ? 'active' : ''}" data-category="all">
+      <button type="button" class="cat-menu-item ${currentCategoryFilter === 'all' ? 'active' : ''}" data-category="all" title="All Habits" aria-label="All Habits">
         <span class="cat-chip-dot all-dot"></span> All
       </button>
     `;
@@ -723,7 +752,13 @@
     }
   }
 
-  function openEditModal(habit) {
+  async function openEditModal(habit) {
+    if (!cachedCategories || cachedCategories.length === 0) {
+      await loadCategories(true);
+    } else {
+      populateCategoryDropdowns();
+    }
+
     document.getElementById('edit-habit-id').value = habit.id;
     document.getElementById('edit-habit-title').value = habit.title;
     document.getElementById('edit-habit-desc').value = habit.description || '';
@@ -943,11 +978,12 @@
   document.getElementById('close-edit').addEventListener('click', () => editModal.classList.add('hidden'));
 
   // --- Initial Setup on DOM Ready ---
-  document.addEventListener('DOMContentLoaded', () => {
-    loadStats();
-    loadHabits();
-    loadWeeklyTargets();
-    loadFeatures();
+  async function initDashboard() {
+    await loadFeatures();
+    await loadCategories();
+    await loadStats();
+    await loadHabits();
+    await loadWeeklyTargets();
 
     // Toggle controls for create form and edit modal
     setupFrequencySelectToggle('habit-frequency', 'freq-days-container', 'freq-interval-container', 'freq-weekly-container');
@@ -976,8 +1012,11 @@
 
       tabAll.addEventListener('click', () => {
         currentTab = 'all';
+        currentCategoryFilter = 'all';
         tabAll.classList.add('active');
         tabDue.classList.remove('active');
+        renderCategoryFilterChips();
+        updateFilterSortUI();
         renderHabitsList();
       });
     }
@@ -1236,9 +1275,19 @@
       });
     }
 
-    // Category select change listener to sync color picker
+    // Category select listeners to sync color picker and lazily ensure categories are populated
     const habitCatSelect = document.getElementById('habit-category');
     if (habitCatSelect) {
+      habitCatSelect.addEventListener('focus', async () => {
+        if (habitCatSelect.options.length <= 1) {
+          await loadCategories(true);
+        }
+      });
+      habitCatSelect.addEventListener('click', async () => {
+        if (habitCatSelect.options.length <= 1) {
+          await loadCategories(true);
+        }
+      });
       habitCatSelect.addEventListener('change', () => {
         const selected = habitCatSelect.options[habitCatSelect.selectedIndex];
         const color = selected ? selected.getAttribute('data-color') : null;
@@ -1249,6 +1298,16 @@
 
     const editCatSelect = document.getElementById('edit-habit-category');
     if (editCatSelect) {
+      editCatSelect.addEventListener('focus', async () => {
+        if (editCatSelect.options.length <= 1) {
+          await loadCategories(true);
+        }
+      });
+      editCatSelect.addEventListener('click', async () => {
+        if (editCatSelect.options.length <= 1) {
+          await loadCategories(true);
+        }
+      });
       editCatSelect.addEventListener('change', () => {
         const selected = editCatSelect.options[editCatSelect.selectedIndex];
         const color = selected ? selected.getAttribute('data-color') : null;
@@ -1257,5 +1316,21 @@
       });
     }
 
-  });
+    // Attach openCreateModal to any modal open trigger buttons if present
+    document.querySelectorAll('#open-create-modal, #new-habit-btn, #create-habit-btn, .open-create-modal').forEach(btn => {
+      btn.addEventListener('click', openCreateModal);
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initDashboard);
+  } else {
+    initDashboard();
+  }
+
+  // Globally expose helpers for external callers, tests, and triggers
+  window.loadWeeklyTargets = loadWeeklyTargets;
+  window.loadCategories = loadCategories;
+  window.openCreateModal = openCreateModal;
+  window.populateCategoryDropdowns = populateCategoryDropdowns;
 })();

@@ -31,20 +31,15 @@ const allowedOrigins = [
 ];
 
 app.use(cors({
-  origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(null, true); // Fallback allow for public API
-    }
-  },
+  origin: true,
   credentials: true
 }));
 
-// Initialize Socket.io with restricted CORS origin
+// Initialize Socket.io with credentials and dynamic CORS origin
 const io = require('socket.io')(server, {
   cors: {
-    origin: "*", // Or your exact frontend local URL like "http://localhost:3000"
+    origin: true,
+    credentials: true,
     methods: ["GET", "POST"]
   }
 });
