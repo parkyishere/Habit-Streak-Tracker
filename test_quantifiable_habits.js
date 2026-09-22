@@ -34,9 +34,10 @@ async function runQuantifiableHabitTests() {
 
   // Test user
   const testEmail = `quant_test_${Date.now()}@example.com`;
+  const testUsername = `quant_user_${Date.now()}`;
   const userRes = await pool.query(
     'INSERT INTO users (username, email, password_hash) VALUES ($1, $2, $3) RETURNING id',
-    ['quant_user', testEmail, 'fake_hash']
+    [testUsername, testEmail, 'fake_hash']
   );
   const testUserId = userRes.rows[0].id;
 

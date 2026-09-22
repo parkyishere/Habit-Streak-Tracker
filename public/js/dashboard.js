@@ -17,11 +17,15 @@
   let currentSortOption = 'default'; // 'default' | 'score-desc' | 'streak-desc' | 'alpha-asc'
   let cachedHabits = [];
   let cachedCategories = [];
+  let cachedTodos = [];
+  let currentTodoFilter = 'active'; // 'active' | 'completed' | 'all'
+  let currentViewMode = 'habits'; // 'habits' | 'todos' | 'both'
   let appFeatures = {
     EXPERIMENT_WEEKLY_TARGETS: false,
     EXPERIMENT_CATEGORIES_TAGS: false,
     EXPERIMENT_QUANTIFIABLE_HABITS: false,
-    EXPERIMENT_KPI_DASHBOARD: true
+    EXPERIMENT_KPI_DASHBOARD: true,
+    EXPERIMENT_TODOS: true
   };
 
   async function loadFeatures() {
@@ -240,11 +244,24 @@
     return { tierClass: 'tier-starting', label: 'Starting' };
   }
 
-  socket.on('activity_feed', (data) => {
-    const streakText = data.streak !== undefined ? ` Streak: ${data.streak}d.` : '';
-    const scoreText = data.score !== undefined ? ` Strength: ${Number(data.score).toFixed(1)}%.` : '';
-    showToast(`${data.username} ${data.action} habit!${streakText}${scoreText}`);
-  });
+  if (socket) {
+    socket.on('activity_feed', (data) => {
+      const streakText = data.streak !== undefined ? ` Streak: ${data.streak}d.` : '';
+      const scoreText = data.score !== undefined ? ` Strength: ${Number(data.score).toFixed(1)}%.` : '';
+      showToast(`${data.username} ${data.action} habit!${streakText}${scoreText}`);
+    });
+
+    socket.on('todo_activity', (data) => {
+      if (data && data.action) {
+        if (data.action === 'created') {
+          showToast(`${data.username} added task: "${data.title}"`);
+        } else if (data.action === 'completed') {
+          showToast(`🎉 ${data.username} completed task: "${data.title}"`);
+        }
+        loadTodos();
+      }
+    });
+  }
 
   async function loadStats() {
     try {
@@ -1088,11 +1105,444 @@
     }
   });
 
-  document.getElementById('close-detail-btn').addEventListener('click', () => {
-    detailSection.classList.add('hidden');
-    detailSection.removeAttribute('data-active-id');
-  });
-  document.getElementById('close-edit').addEventListener('click', () => editModal.classList.add('hidden'));
+  const closeDetailBtn = document.getElementById('close-detail-btn');
+  if (closeDetailBtn) {
+    closeDetailBtn.addEventListener('click', () => {
+      if (detailSection) {
+        detailSection.classList.add('hidden');
+        detailSection.removeAttribute('data-active-id');
+      }
+    });
+  }
+  const closeEditBtn = document.getElementById('close-edit');
+  if (closeEditBtn) {
+    closeEditBtn.addEventListener('click', () => {
+      if (editModal) editModal.classList.add('hidden');
+    });
+  }
+
+  // ==========================================================================
+  // To-Do List Operations (Habitica-Style One-Off Tasks)
+  // ==========================================================================
+  async function loadTodos() {
+    try {
+      const res = await fetch('/api/todos', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success && Array.isArray(data.todos)) {
+        cachedTodos = data.todos;
+        renderTodoList();
+      }
+    } catch (err) {
+      console.warn('Could not load to-dos:', err);
+    }
+  }
+
+  function formatDisplayDate(dateStr) {
+    if (!dateStr) return '';
+    try {
+      const parts = String(dateStr).slice(0, 10).split('-');
+      if (parts.length === 3) {
+        const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+        return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+      }
+    } catch (e) {}
+    return String(dateStr).slice(0, 10);
+  }
+
+  function renderTodoList() {
+    const listEl = document.getElementById('todos-list');
+    const totalCount = cachedTodos.length;
+    const completedCount = cachedTodos.filter(t => t.completed).length;
+    const activeCount = totalCount - completedCount;
+
+    // Update count badges
+    const activeBadge = document.getElementById('todo-active-count');
+    const completedBadge = document.getElementById('todo-completed-count');
+    const allBadge = document.getElementById('todo-all-count');
+    const navBadge = document.getElementById('todo-nav-badge');
+    const summaryEl = document.getElementById('todo-completion-summary');
+
+    if (activeBadge) activeBadge.innerText = activeCount;
+    if (completedBadge) completedBadge.innerText = completedCount;
+    if (allBadge) allBadge.innerText = totalCount;
+    if (navBadge) {
+      navBadge.innerText = activeCount;
+      navBadge.style.display = activeCount > 0 ? 'inline-block' : 'none';
+    }
+    if (summaryEl) {
+      summaryEl.innerText = `${completedCount} of ${totalCount} completed`;
+    }
+
+    if (!listEl) return;
+    listEl.innerHTML = '';
+
+    let displayedTodos = cachedTodos;
+    if (currentTodoFilter === 'active') {
+      displayedTodos = cachedTodos.filter(t => !t.completed);
+    } else if (currentTodoFilter === 'completed') {
+      displayedTodos = cachedTodos.filter(t => t.completed);
+    }
+
+    if (displayedTodos.length === 0) {
+      const emptyMessages = {
+        active: {
+          icon: '✨',
+          title: 'No active tasks pending',
+          desc: 'All clear! Add a new to-do task above or check back later.'
+        },
+        completed: {
+          icon: '📝',
+          title: 'No completed tasks yet',
+          desc: 'Check off tasks as you finish them to see them here.'
+        },
+        all: {
+          icon: '🎯',
+          title: 'No to-do tasks found',
+          desc: 'Use the quick add bar above to create your first to-do.'
+        }
+      };
+      const info = emptyMessages[currentTodoFilter] || emptyMessages.all;
+      listEl.innerHTML = `
+        <div class="todo-empty-state">
+          <span class="todo-empty-icon">${info.icon}</span>
+          <h4>${info.title}</h4>
+          <p>${info.desc}</p>
+        </div>
+      `;
+      return;
+    }
+
+    const todayStr = getLocalDateStr(new Date());
+
+    displayedTodos.forEach(todo => {
+      const card = document.createElement('div');
+      card.className = `todo-item-card ${todo.completed ? 'completed' : ''}`;
+      card.setAttribute('data-id', todo.id);
+
+      // Due date badge calculation
+      let dueBadgeHtml = '';
+      if (todo.due_date) {
+        const dueDateStr = getLocalDateStr(todo.due_date);
+        if (todo.completed) {
+          dueBadgeHtml = `<span class="todo-due-badge todo-due-completed">✓ ${formatDisplayDate(dueDateStr)}</span>`;
+        } else if (dueDateStr < todayStr) {
+          dueBadgeHtml = `<span class="todo-due-badge todo-due-overdue" title="Overdue">⚠️ ${formatDisplayDate(dueDateStr)} (Overdue)</span>`;
+        } else if (dueDateStr === todayStr) {
+          dueBadgeHtml = `<span class="todo-due-badge todo-due-today" title="Due Today">📅 Today</span>`;
+        } else {
+          dueBadgeHtml = `<span class="todo-due-badge todo-due-upcoming" title="Upcoming">📅 ${formatDisplayDate(dueDateStr)}</span>`;
+        }
+      }
+
+      const descHtml = todo.description && todo.description.trim()
+        ? `<p class="todo-description">${escapeHtml(todo.description.trim())}</p>`
+        : '';
+
+      card.innerHTML = `
+        <button type="button" class="todo-check-btn ${todo.completed ? 'checked' : ''}" data-id="${todo.id}" aria-label="${todo.completed ? 'Mark task as incomplete' : 'Mark task as complete'}" title="${todo.completed ? 'Mark task as incomplete' : 'Mark task as complete'}">
+          <svg class="check-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+        </button>
+        <div class="todo-content-col">
+          <div class="todo-title-row">
+            <span class="todo-title ${todo.completed ? 'completed-text' : ''}">${escapeHtml(todo.title)}</span>
+            ${dueBadgeHtml}
+          </div>
+          ${descHtml}
+        </div>
+        <div class="todo-actions-col">
+          <button type="button" class="todo-edit-btn" data-id="${todo.id}" title="Edit Task" aria-label="Edit Task">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+          </button>
+          <button type="button" class="todo-delete-btn" data-id="${todo.id}" title="Delete Task" aria-label="Delete Task">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+          </button>
+        </div>
+      `;
+
+      listEl.appendChild(card);
+    });
+  }
+
+  async function toggleTodoStatus(todoId) {
+    const todo = cachedTodos.find(t => String(t.id) === String(todoId));
+    if (!todo) return;
+
+    // Optimistic UI toggle
+    const prevStatus = todo.completed;
+    todo.completed = !prevStatus;
+    renderTodoList();
+
+    try {
+      const res = await fetch(`/api/todos/${todoId}/toggle`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        }
+      });
+      const data = await res.json();
+      if (data.success && data.todo) {
+        Object.assign(todo, data.todo);
+        renderTodoList();
+        showToast(todo.completed ? `🎉 Task "${todo.title}" completed!` : `Task "${todo.title}" moved to active.`);
+      } else {
+        todo.completed = prevStatus;
+        renderTodoList();
+        showToast(data.error || 'Failed to update task status');
+      }
+    } catch (err) {
+      console.error('Error toggling todo:', err);
+      todo.completed = prevStatus;
+      renderTodoList();
+      showToast('Network error while toggling task status');
+    }
+  }
+
+  async function createTodo(title, description = '', dueDate = null) {
+    if (!title || !title.trim()) return false;
+    try {
+      const res = await fetch('/api/todos', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          title: title.trim(),
+          description: description ? description.trim() : '',
+          due_date: dueDate || null
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.success && data.todo) {
+        cachedTodos.unshift(data.todo);
+        renderTodoList();
+        showToast(`Task "${data.todo.title}" created!`);
+        return true;
+      } else {
+        alert(data.error || 'Failed to create to-do');
+        return false;
+      }
+    } catch (err) {
+      console.error('Error creating todo:', err);
+      alert('Network error creating to-do task');
+      return false;
+    }
+  }
+
+  async function updateTodo(todoId, title, description = '', dueDate = null) {
+    if (!title || !title.trim()) return false;
+    try {
+      const res = await fetch(`/api/todos/${todoId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          title: title.trim(),
+          description: description ? description.trim() : '',
+          due_date: dueDate || null
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.success && data.todo) {
+        const idx = cachedTodos.findIndex(t => String(t.id) === String(todoId));
+        if (idx !== -1) {
+          cachedTodos[idx] = data.todo;
+        }
+        renderTodoList();
+        showToast(`Task "${data.todo.title}" updated!`);
+        return true;
+      } else {
+        alert(data.error || 'Failed to update task');
+        return false;
+      }
+    } catch (err) {
+      console.error('Error updating todo:', err);
+      alert('Network error updating task');
+      return false;
+    }
+  }
+
+  async function deleteTodo(todoId) {
+    const todo = cachedTodos.find(t => String(t.id) === String(todoId));
+    const title = todo ? todo.title : 'Task';
+
+    try {
+      const res = await fetch(`/api/todos/${todoId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        cachedTodos = cachedTodos.filter(t => String(t.id) !== String(todoId));
+        renderTodoList();
+        showToast(`Task "${title}" deleted.`);
+      } else {
+        alert(data.error || 'Failed to delete task');
+      }
+    } catch (err) {
+      console.error('Error deleting todo:', err);
+      alert('Network error deleting task');
+    }
+  }
+
+  function openTodoModal(todo = null) {
+    const modal = document.getElementById('todo-modal');
+    if (!modal) return;
+
+    const modalTitle = document.getElementById('todo-modal-title');
+    const idInput = document.getElementById('todo-modal-id');
+    const titleInput = document.getElementById('todo-modal-task-title');
+    const descInput = document.getElementById('todo-modal-desc');
+    const dueInput = document.getElementById('todo-modal-due');
+
+    if (todo) {
+      if (modalTitle) modalTitle.innerText = 'Edit To-Do Task';
+      if (idInput) idInput.value = todo.id;
+      if (titleInput) titleInput.value = todo.title || '';
+      if (descInput) descInput.value = todo.description || '';
+      if (dueInput) dueInput.value = todo.due_date ? getLocalDateStr(todo.due_date) : '';
+    } else {
+      if (modalTitle) modalTitle.innerText = 'Create To-Do Task';
+      if (idInput) idInput.value = '';
+      if (titleInput) titleInput.value = '';
+      if (descInput) descInput.value = '';
+      if (dueInput) dueInput.value = '';
+    }
+
+    modal.classList.remove('hidden');
+    if (titleInput) titleInput.focus();
+  }
+
+  function closeTodoModal() {
+    const modal = document.getElementById('todo-modal');
+    if (modal) modal.classList.add('hidden');
+  }
+
+  function setViewMode(mode) {
+    currentViewMode = mode;
+    const btnHabits = document.getElementById('view-tab-habits');
+    const btnTodos = document.getElementById('view-tab-todos');
+    const btnBoth = document.getElementById('view-tab-both');
+    const habitsSection = document.getElementById('habits-section');
+    const todosSection = document.getElementById('todos-section');
+
+    if (btnHabits) btnHabits.classList.toggle('active', mode === 'habits');
+    if (btnTodos) btnTodos.classList.toggle('active', mode === 'todos');
+    if (btnBoth) btnBoth.classList.toggle('active', mode === 'both');
+
+    if (habitsSection) {
+      habitsSection.classList.toggle('hidden', mode === 'todos');
+    }
+    if (todosSection) {
+      todosSection.classList.toggle('hidden', mode === 'habits');
+    }
+  }
+
+  function setupTodoListeners() {
+    // Quick add form
+    const quickForm = document.getElementById('todo-quick-form');
+    if (quickForm) {
+      quickForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const titleEl = document.getElementById('todo-quick-title');
+        const dueEl = document.getElementById('todo-quick-due');
+        const title = titleEl ? titleEl.value.trim() : '';
+        const due = dueEl && dueEl.value ? dueEl.value : null;
+        if (title) {
+          const ok = await createTodo(title, '', due);
+          if (ok) {
+            if (titleEl) titleEl.value = '';
+            if (dueEl) dueEl.value = '';
+          }
+        }
+      });
+    }
+
+    // Modal form
+    const modalForm = document.getElementById('todo-modal-form');
+    if (modalForm) {
+      modalForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const id = document.getElementById('todo-modal-id').value;
+        const title = document.getElementById('todo-modal-task-title').value.trim();
+        const desc = document.getElementById('todo-modal-desc').value.trim();
+        const due = document.getElementById('todo-modal-due').value;
+
+        if (!title) return;
+        let ok = false;
+        if (id) {
+          ok = await updateTodo(id, title, desc, due);
+        } else {
+          ok = await createTodo(title, desc, due);
+        }
+        if (ok) {
+          closeTodoModal();
+        }
+      });
+    }
+
+    // Filter pills
+    ['todo-tab-active', 'todo-tab-completed', 'todo-tab-all'].forEach(id => {
+      const btn = document.getElementById(id);
+      if (btn) {
+        btn.addEventListener('click', () => {
+          const filter = btn.getAttribute('data-filter') || 'all';
+          currentTodoFilter = filter;
+          document.querySelectorAll('.todo-pill').forEach(p => p.classList.toggle('active', p === btn));
+          renderTodoList();
+        });
+      }
+    });
+
+    // View switch buttons
+    const tabHabits = document.getElementById('view-tab-habits');
+    const tabTodos = document.getElementById('view-tab-todos');
+    const tabBoth = document.getElementById('view-tab-both');
+    if (tabHabits) tabHabits.addEventListener('click', () => setViewMode('habits'));
+    if (tabTodos) tabTodos.addEventListener('click', () => setViewMode('todos'));
+    if (tabBoth) tabBoth.addEventListener('click', () => setViewMode('both'));
+
+    // Modal triggers
+    const openTodoBtn = document.getElementById('open-todo-modal-btn');
+    if (openTodoBtn) openTodoBtn.addEventListener('click', () => openTodoModal());
+    const closeTodoBtn = document.getElementById('close-todo-modal');
+    if (closeTodoBtn) closeTodoBtn.addEventListener('click', closeTodoModal);
+    const cancelTodoBtn = document.getElementById('cancel-todo-modal-btn');
+    if (cancelTodoBtn) cancelTodoBtn.addEventListener('click', closeTodoModal);
+
+    // List delegation
+    const todosListEl = document.getElementById('todos-list');
+    if (todosListEl) {
+      todosListEl.addEventListener('click', (e) => {
+        const checkBtn = e.target.closest('.todo-check-btn');
+        if (checkBtn) {
+          const id = checkBtn.getAttribute('data-id');
+          toggleTodoStatus(id);
+          return;
+        }
+        const editBtn = e.target.closest('.todo-edit-btn');
+        if (editBtn) {
+          const id = editBtn.getAttribute('data-id');
+          const todo = cachedTodos.find(t => String(t.id) === String(id));
+          if (todo) openTodoModal(todo);
+          return;
+        }
+        const deleteBtn = e.target.closest('.todo-delete-btn');
+        if (deleteBtn) {
+          const id = deleteBtn.getAttribute('data-id');
+          deleteTodo(id);
+          return;
+        }
+      });
+    }
+  }
 
   // --- Initial Setup on DOM Ready ---
   async function initDashboard() {
@@ -1102,6 +1552,8 @@
     await loadKpiSummary();
     await loadHabits();
     await loadWeeklyTargets();
+    await loadTodos();
+    setupTodoListeners();
 
     // Toggle controls for create form and edit modal
     setupFrequencySelectToggle('habit-frequency', 'freq-days-container', 'freq-interval-container', 'freq-weekly-container');
@@ -1455,4 +1907,13 @@
   window.populateCategoryDropdowns = populateCategoryDropdowns;
   window.loadKpiSummary = loadKpiSummary;
   window.renderKpiWidgets = renderKpiWidgets;
+  window.loadTodos = loadTodos;
+  window.renderTodoList = renderTodoList;
+  window.toggleTodoStatus = toggleTodoStatus;
+  window.createTodo = createTodo;
+  window.updateTodo = updateTodo;
+  window.deleteTodo = deleteTodo;
+  window.openTodoModal = openTodoModal;
+  window.closeTodoModal = closeTodoModal;
+  window.setViewMode = setViewMode;
 })();

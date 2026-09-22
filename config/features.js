@@ -12,7 +12,9 @@ const features = {
   // Habit Categories, Tags, and Dashboard Filtering
   EXPERIMENT_CATEGORIES_TAGS: process.env.EXPERIMENT_CATEGORIES_TAGS !== 'false',
   // Summary KPI Dashboard: Lightweight Top-Level Statistics
-  EXPERIMENT_KPI_DASHBOARD: process.env.EXPERIMENT_KPI_DASHBOARD !== 'false'
+  EXPERIMENT_KPI_DASHBOARD: process.env.EXPERIMENT_KPI_DASHBOARD !== 'false',
+  // To-Do List Integration (Habitica One-Off Tasks)
+  EXPERIMENT_TODOS: process.env.EXPERIMENT_TODOS !== 'false'
 };
 
 module.exports = features;

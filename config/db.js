@@ -66,6 +66,16 @@ const initDatabase = async () => {
         score NUMERIC(5, 2) DEFAULT 0.0,
         last_check_in_date DATE
       );
+
+      CREATE TABLE IF NOT EXISTS todos (
+        id SERIAL PRIMARY KEY,
+        user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        title VARCHAR(255) NOT NULL,
+        description TEXT,
+        due_date DATE,
+        completed BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
     `);
 
     // Ensure frequency, score, quantifiable, and category/tag columns exist for older schema instances
@@ -80,6 +90,10 @@ const initDatabase = async () => {
       ALTER TABLE habits ADD COLUMN IF NOT EXISTS color_hex VARCHAR(7) DEFAULT '';
       ALTER TABLE streaks ADD COLUMN IF NOT EXISTS score NUMERIC(5, 2) DEFAULT 0.0;
       ALTER TABLE check_ins ADD COLUMN IF NOT EXISTS count INT DEFAULT 1;
+      ALTER TABLE todos ADD COLUMN IF NOT EXISTS description TEXT;
+      ALTER TABLE todos ADD COLUMN IF NOT EXISTS due_date DATE;
+      ALTER TABLE todos ADD COLUMN IF NOT EXISTS completed BOOLEAN DEFAULT FALSE;
+      ALTER TABLE todos ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
     `);
 
     // Seed standard categories if missing

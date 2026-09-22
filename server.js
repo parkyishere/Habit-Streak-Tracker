@@ -16,6 +16,7 @@ const habitRoutes = require('./routes/habitRoutes');
 const analyticsRoutes = require('./routes/analyticsRoutes');
 const categoryRoutes = require('./routes/categoryRoutes');
 const kpiRoutes = require('./routes/kpiRoutes');
+const todoRoutes = require('./routes/todoRoutes');
 
 // Import Middleware
 const cookieParser = require('cookie-parser');
@@ -66,6 +67,7 @@ app.use('/api/habits', habitRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/kpi-summary', kpiRoutes);
+app.use('/api/todos', todoRoutes);
 
 // Feature flags endpoint
 app.get('/api/features', (req, res) => {
