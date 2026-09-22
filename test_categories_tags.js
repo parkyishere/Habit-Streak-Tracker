@@ -6,7 +6,7 @@ const habitController = require('./controllers/habitController');
 const categoryController = require('./controllers/categoryController');
 
 async function runCategoryAndSortingTests() {
-  console.log('\n🧪 Starting Habit Categories, Filtering, and Sorting Tests...\n');
+  console.log('\n[START] Starting Habit Categories, Filtering, and Sorting Tests...\n');
 
   // 1. Schema & Configuration verification
   console.log('Test 1: Database Schema & Feature Flag');
@@ -25,7 +25,7 @@ async function runCategoryAndSortingTests() {
     SELECT count(*)::int as count FROM categories
   `);
   assert.ok(catTable.rows[0].count >= 4, 'categories table should contain default seeded categories');
-  console.log('  ✅ Passed: Schema, columns, seeded categories, and feature flag verified');
+  console.log('  [PASS] Passed: Schema, columns, seeded categories, and feature flag verified');
 
   // Setup Test Express Server & User
   const app = express();
@@ -74,7 +74,7 @@ async function runCategoryAndSortingTests() {
 
     codeCatId = catData.categories.find(c => c.name === 'Code').id;
     healthCatId = catData.categories.find(c => c.name === 'Health').id;
-    console.log('  ✅ Passed: Categories fetched successfully');
+    console.log('  [PASS] Passed: Categories fetched successfully');
 
     // 3. Create Habits with Categories and Colors
     console.log('\nTest 3: POST /api/habits with category_id and color_hex');
@@ -112,7 +112,7 @@ async function runCategoryAndSortingTests() {
     assert.strictEqual(data2.habit.category_id, healthCatId);
     assert.strictEqual(data2.habit.category_name, 'Health');
     habit2Id = data2.habit.id;
-    console.log('  ✅ Passed: Habits created with distinct categories and colors');
+    console.log('  [PASS] Passed: Habits created with distinct categories and colors');
 
     // 4. Update Habit Category and Color
     console.log('\nTest 4: PUT /api/habits/:habitId update category and color');
@@ -129,7 +129,7 @@ async function runCategoryAndSortingTests() {
     assert.strictEqual(updateData.success, true);
     assert.strictEqual(updateData.habit.title, 'Algorithms & System Design');
     assert.strictEqual(updateData.habit.color_hex, '#4F46E5');
-    console.log('  ✅ Passed: Habit updated with new details');
+    console.log('  [PASS] Passed: Habit updated with new details');
 
     // 5. Verify Sorting logic
     console.log('\nTest 5: Verify Sorting Options');
@@ -141,7 +141,7 @@ async function runCategoryAndSortingTests() {
     const alphaSorted = [...listData.habits].sort((a, b) => (a.title || '').localeCompare(b.title || ''));
     assert.strictEqual(alphaSorted[0].title, 'Algorithms & System Design');
     assert.strictEqual(alphaSorted[1].title, 'Daily Morning Jog');
-    console.log('  ✅ Passed: Alphabetical sorting correctly orders habits');
+    console.log('  [PASS] Passed: Alphabetical sorting correctly orders habits');
 
     // 6. Habit History verification
     console.log('\nTest 6: GET /api/habits/:habitId/history contains category info');
@@ -149,7 +149,7 @@ async function runCategoryAndSortingTests() {
     const histData = await histRes.json();
     assert.strictEqual(histData.success, true);
     assert.strictEqual(histData.habit.category_name, 'Code');
-    console.log('  ✅ Passed: Habit history includes category details');
+    console.log('  [PASS] Passed: Habit history includes category details');
 
     // 7. Isolation & Flag Fallback Test
     console.log('\nTest 7: Feature Flag Disabled Fallback (Isolation)');
@@ -170,9 +170,9 @@ async function runCategoryAndSortingTests() {
 
     // Restore feature flag
     features.EXPERIMENT_CATEGORIES_TAGS = true;
-    console.log('  ✅ Passed: Flag fallback cleanly omits categories without errors');
+    console.log('  [PASS] Passed: Flag fallback cleanly omits categories without errors');
 
-    console.log('\n🎉 ALL HABIT CATEGORIES & SORTING TESTS PASSED SUCCESSFULLY!\n');
+    console.log('\n[SUCCESS] ALL HABIT CATEGORIES & SORTING TESTS PASSED SUCCESSFULLY!\n');
   } finally {
     // Cleanup test user and habits
     if (habit1Id) await pool.query('DELETE FROM habits WHERE id = $1', [habit1Id]);
@@ -185,6 +185,6 @@ async function runCategoryAndSortingTests() {
 }
 
 runCategoryAndSortingTests().catch(err => {
-  console.error('\n❌ Test failed with error:', err);
+  console.error('\n[FAIL] Test failed with error:', err);
   process.exit(1);
 });

@@ -6,12 +6,12 @@ const express = require('express');
 const assert = require('assert');
 
 async function runTodoTests() {
-  console.log('\n🧪 Starting Habitica-Style To-Do List Integration Tests...\n');
+  console.log('\n[START] Starting Habitica-Style To-Do List Integration Tests...\n');
 
   // --- Test 1: Feature Flag & Configuration ---
   console.log('Test 1: Feature Flag & Configuration');
   assert.strictEqual(features.EXPERIMENT_TODOS, true, 'EXPERIMENT_TODOS should be enabled by default');
-  console.log('  ✅ Passed: EXPERIMENT_TODOS feature flag is active');
+  console.log('  [PASS] Passed: EXPERIMENT_TODOS feature flag is active');
 
   // --- Test 2: Database Schema & Columns Verification ---
   console.log('\nTest 2: PostgreSQL Database Schema Verification');
@@ -32,7 +32,7 @@ async function runTodoTests() {
   assert.ok(colNames.includes('due_date'), 'todos must have due_date column');
   assert.ok(colNames.includes('completed'), 'todos must have completed column');
   assert.ok(colNames.includes('created_at'), 'todos must have created_at column');
-  console.log('  ✅ Passed: Dedicated todos table and all required columns verified');
+  console.log('  [PASS] Passed: Dedicated todos table and all required columns verified');
 
   // --- Setup Test Users ---
   const emailA = 'todo_test_user_a@example.com';
@@ -78,7 +78,7 @@ async function runTodoTests() {
     assert.strictEqual(emptyRes.status, 400, 'Should reject empty title with 400');
     const emptyData = await emptyRes.json();
     assert.strictEqual(emptyData.success, false, 'Success must be false');
-    console.log('  ✅ Passed: Rejected empty title with HTTP 400');
+    console.log('  [PASS] Passed: Rejected empty title with HTTP 400');
 
     // --- Test 4: Create Task via POST /api/todos ---
     console.log('\nTest 4: Create To-Do via POST /api/todos');
@@ -98,7 +98,7 @@ async function runTodoTests() {
     assert.strictEqual(createData1.todo.completed, false);
     assert.ok(createData1.todo.id, 'Created todo must have an ID');
     const todo1Id = createData1.todo.id;
-    console.log(`  ✅ Passed: Created Task 1 (ID: ${todo1Id}) with due date 2026-10-15`);
+    console.log(`  [PASS] Passed: Created Task 1 (ID: ${todo1Id}) with due date 2026-10-15`);
 
     // Create a second task for User A
     const createRes2 = await fetch(`${baseUrl}/api/todos`, {
@@ -129,7 +129,7 @@ async function runTodoTests() {
       body: JSON.stringify({ title: 'Hacked title' })
     });
     assert.strictEqual(tamperRes.status, 404, 'User B should receive 404 trying to update User A todo');
-    console.log('  ✅ Passed: Strict multi-tenant isolation verified');
+    console.log('  [PASS] Passed: Strict multi-tenant isolation verified');
 
     // --- Test 6: Fetch Todos via GET /api/todos with filtering ---
     console.log('\nTest 6: Fetch Todos & Status Filtering');
@@ -150,7 +150,7 @@ async function runTodoTests() {
     });
     const dataCompleted = await getResCompleted.json();
     assert.strictEqual(dataCompleted.todos.length, 0, 'No tasks should be completed yet');
-    console.log('  ✅ Passed: Query filtering (?filter=active, ?filter=completed) operates accurately');
+    console.log('  [PASS] Passed: Query filtering (?filter=active, ?filter=completed) operates accurately');
 
     // --- Test 7: Quick Check-Off Toggle (PATCH /api/todos/:id/toggle) ---
     console.log('\nTest 7: Quick Check-Off Toggle Action');
@@ -180,7 +180,7 @@ async function runTodoTests() {
     const toggleData2 = await toggleRes2.json();
     assert.strictEqual(toggleData2.todo.completed, false, 'Task 1 should be uncompleted');
     console.log('  Toggled Task 1 back: completed=false');
-    console.log('  ✅ Passed: Quick check-off toggle flips completion state reliably');
+    console.log('  [PASS] Passed: Quick check-off toggle flips completion state reliably');
 
     // --- Test 8: Update Task via PUT /api/todos/:id ---
     console.log('\nTest 8: Full Task Update via PUT /api/todos/:id');
@@ -197,7 +197,7 @@ async function runTodoTests() {
     const updateData = await updateRes.json();
     assert.strictEqual(updateData.todo.title, 'Buy organic groceries & vitamins');
     assert.strictEqual(updateData.todo.description, 'Almond milk, blueberries, multivitamins');
-    console.log('  ✅ Passed: Task title, description, and due date successfully updated');
+    console.log('  [PASS] Passed: Task title, description, and due date successfully updated');
 
     // --- Test 9: Delete Task via DELETE /api/todos/:id ---
     console.log('\nTest 9: Delete Task via DELETE /api/todos/:id');
@@ -215,7 +215,7 @@ async function runTodoTests() {
       headers: { Authorization: `Bearer ${tokenA}` }
     });
     assert.strictEqual(verifyDelRes.status, 404, 'Subsequent delete must return 404');
-    console.log('  ✅ Passed: Task deletion and subsequent 404 verified');
+    console.log('  [PASS] Passed: Task deletion and subsequent 404 verified');
 
     // --- Test 10: Frontend Integration & View Switcher ---
     console.log('\nTest 10: Frontend Integration & DOM Helpers');
@@ -231,9 +231,9 @@ async function runTodoTests() {
     assert.ok(htmlContent.includes('id="view-tab-habits"'), 'dashboard.html must include view-tab-habits');
     assert.ok(htmlContent.includes('id="view-tab-todos"'), 'dashboard.html must include view-tab-todos');
     assert.ok(htmlContent.includes('id="view-tab-both"'), 'dashboard.html must include view-tab-both');
-    console.log('  ✅ Passed: All frontend DOM container IDs present in dashboard.html');
+    console.log('  [PASS] Passed: All frontend DOM container IDs present in dashboard.html');
 
-    console.log('\n🎉 ALL 10 TO-DO LIST INTEGRATION TESTS PASSED SUCCESSFULLY!\n');
+    console.log('\n[SUCCESS] ALL 10 TO-DO LIST INTEGRATION TESTS PASSED SUCCESSFULLY!\n');
   } finally {
     // Clean up test data
     await pool.query('DELETE FROM users WHERE id IN ($1, $2)', [userA.id, userB.id]);
@@ -242,6 +242,6 @@ async function runTodoTests() {
 }
 
 runTodoTests().catch(err => {
-  console.error('❌ To-Do Integration Tests Failed:', err);
+  console.error('[FAIL] To-Do Integration Tests Failed:', err);
   process.exit(1);
 });

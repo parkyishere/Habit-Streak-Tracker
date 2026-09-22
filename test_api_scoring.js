@@ -3,7 +3,7 @@ const jwt = require('jsonwebtoken');
 const http = require('http');
 
 async function testApi() {
-  console.log('🌐 Starting API End-to-End Scoring Test...\n');
+  console.log('[START] Starting API End-to-End Scoring Test...\n');
 
   // Find or create test user
   const email = 'test_score_user@example.com';
@@ -93,7 +93,7 @@ async function testApi() {
 
     // Clean up
     await pool.query('DELETE FROM users WHERE id = $1', [user.id]);
-    console.log('\n🎉 API END-TO-END VERIFICATION COMPLETED SUCCESSFULLY!');
+    console.log('\n[SUCCESS] API END-TO-END VERIFICATION COMPLETED SUCCESSFULLY!');
   } finally {
     server.close();
     process.exit(0);

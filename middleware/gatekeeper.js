@@ -170,7 +170,11 @@ function renderGatekeeperLoginHtml({ error = null, redirect = '/' } = {}) {
     <p class="subtitle">Please provide your tester authorization credentials to view this application.</p>
 
     ${error ? `<div class="error-alert">
-      <span>⚠️</span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;">
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="12" y1="8" x2="12" y2="12"></line>
+        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+      </svg>
       <span>${error}</span>
     </div>` : ''}
 

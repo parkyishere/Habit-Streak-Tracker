@@ -5,7 +5,7 @@ const features = require('./config/features');
 const habitController = require('./controllers/habitController');
 
 async function runQuantifiableHabitTests() {
-  console.log('\n🧪 Starting Quantifiable Habit (Multiple Check-Ins per Day) Tests...\n');
+  console.log('\n[START] Starting Quantifiable Habit (Multiple Check-Ins per Day) Tests...\n');
 
   // 1. Schema & Configuration verification
   console.log('Test 1: Database Schema & Feature Flag');
@@ -26,7 +26,7 @@ async function runQuantifiableHabitTests() {
     WHERE table_name = 'check_ins' AND column_name = 'count'
   `);
   assert.strictEqual(colCheckIns.rows.length, 1, 'check_ins.count column must exist');
-  console.log('  ✅ Passed: Schema and feature flag verified');
+  console.log('  [PASS] Passed: Schema and feature flag verified');
 
   // Setup Test Express Server & User
   const app = express();
@@ -80,7 +80,7 @@ async function runQuantifiableHabitTests() {
     assert.strictEqual(createData.habit.today_count, 0);
     assert.strictEqual(createData.habit.is_completed_today, false);
     createdHabitId = createData.habit.id;
-    console.log(`  ✅ Passed: Habit created with target_per_day=8, unit="glasses"`);
+    console.log(`  [PASS] Passed: Habit created with target_per_day=8, unit="glasses"`);
 
     // 3. Fetch Habits (GET /api/habits)
     console.log('\nTest 3: Fetch Habits returns quantifiable metadata');
@@ -93,7 +93,7 @@ async function runQuantifiableHabitTests() {
     assert.strictEqual(fetchedHabit.unit, 'glasses');
     assert.strictEqual(fetchedHabit.today_count, 0);
     assert.strictEqual(fetchedHabit.is_completed_today, false);
-    console.log('  ✅ Passed: GET /api/habits returned today_count=0, target_per_day=8');
+    console.log('  [PASS] Passed: GET /api/habits returned today_count=0, target_per_day=8');
 
     // 4. Stepper: Increment Progress
     console.log('\nTest 4: Increment Progress (1/8 glasses)');
@@ -107,7 +107,7 @@ async function runQuantifiableHabitTests() {
     assert.strictEqual(incData1.today_count, 1);
     assert.strictEqual(incData1.is_completed_today, false, 'Should NOT be completed yet at 1/8');
     assert.strictEqual(incData1.current_streak, 0, 'Streak should not increment until daily target is met');
-    console.log('  ✅ Passed: Incremented to 1/8, status=false, streak=0');
+    console.log('  [PASS] Passed: Incremented to 1/8, status=false, streak=0');
 
     // 5. Increment to reach full target (8/8 glasses)
     console.log('\nTest 5: Increment to reach Target (8/8 glasses)');
@@ -129,7 +129,7 @@ async function runQuantifiableHabitTests() {
     assert.strictEqual(finalIncData.is_completed_today, true, 'Daily target achieved!');
     assert.strictEqual(finalIncData.current_streak, 1, 'Streak should be 1 now that target is achieved');
     assert.ok(finalIncData.score > 0, 'Score should increase after achieving daily target');
-    console.log(`  ✅ Passed: Target achieved (8/8 glasses), streak=${finalIncData.current_streak}, score=${finalIncData.score}%`);
+    console.log(`  [PASS] Passed: Target achieved (8/8 glasses), streak=${finalIncData.current_streak}, score=${finalIncData.score}%`);
 
     // 6. Stepper: Decrement Progress
     console.log('\nTest 6: Decrement Progress (8 -> 7 glasses)');
@@ -142,7 +142,7 @@ async function runQuantifiableHabitTests() {
     assert.strictEqual(decData.success, true);
     assert.strictEqual(decData.today_count, 7);
     assert.strictEqual(decData.is_completed_today, false, 'Decremented below target, is_completed_today should be false');
-    console.log('  ✅ Passed: Decremented to 7/8 glasses, is_completed_today=false');
+    console.log('  [PASS] Passed: Decremented to 7/8 glasses, is_completed_today=false');
 
     // 7. Stepper: Reset Action
     console.log('\nTest 7: Reset Progress to 0');
@@ -155,7 +155,7 @@ async function runQuantifiableHabitTests() {
     assert.strictEqual(resetData.success, true);
     assert.strictEqual(resetData.today_count, 0);
     assert.strictEqual(resetData.is_completed_today, false);
-    console.log('  ✅ Passed: Reset today_count to 0');
+    console.log('  [PASS] Passed: Reset today_count to 0');
 
     // 8. Update Habit target & unit (PUT /api/habits/:id)
     console.log('\nTest 8: Update Habit target_per_day to 10');
@@ -171,7 +171,7 @@ async function runQuantifiableHabitTests() {
     const updateData = await updateRes.json();
     assert.strictEqual(updateData.success, true);
     assert.strictEqual(updateData.habit.target_per_day, 10);
-    console.log('  ✅ Passed: Habit updated target_per_day=10');
+    console.log('  [PASS] Passed: Habit updated target_per_day=10');
 
     // 9. Feature Flag Isolation & Clean Fallback
     console.log('\nTest 9: Feature Flag Isolation & Rollback');
@@ -183,12 +183,12 @@ async function runQuantifiableHabitTests() {
       const habitWhenDisabled = getDisabledData.habits.find(h => h.id === createdHabitId);
       assert.strictEqual(habitWhenDisabled.target_per_day, 1, 'When flag is false, target_per_day should fall back to 1');
       assert.strictEqual(habitWhenDisabled.unit, '', 'When flag is false, unit should fall back to empty');
-      console.log('  ✅ Passed: Clean fallback when EXPERIMENT_QUANTIFIABLE_HABITS = false');
+      console.log('  [PASS] Passed: Clean fallback when EXPERIMENT_QUANTIFIABLE_HABITS = false');
     } finally {
       features.EXPERIMENT_QUANTIFIABLE_HABITS = originalFlag;
     }
 
-    console.log('\n🎉 ALL 9 QUANTIFIABLE HABIT TESTS PASSED SUCCESSFULLY!\n');
+    console.log('\n[SUCCESS] ALL 9 QUANTIFIABLE HABIT TESTS PASSED SUCCESSFULLY!\n');
   } finally {
     server.close();
     // Cleanup test user and habits cascade
@@ -199,6 +199,6 @@ async function runQuantifiableHabitTests() {
 }
 
 runQuantifiableHabitTests().catch(err => {
-  console.error('❌ Test failed:', err);
+  console.error('[FAIL] Test failed:', err);
   process.exit(1);
 });

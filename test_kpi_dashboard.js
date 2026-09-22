@@ -7,12 +7,12 @@ const kpiController = require('./controllers/kpiController');
 const { getLocalDateStr } = require('./utils/dateHelpers');
 
 async function runKpiDashboardTests() {
-  console.log('\n🧪 Starting Summary KPI Dashboard Tests...\n');
+  console.log('\n[START] Starting Summary KPI Dashboard Tests...\n');
 
   // Test 1: Feature flag check
   console.log('Test 1: Feature Flag & Configuration Verification');
   assert.strictEqual(features.EXPERIMENT_KPI_DASHBOARD, true, 'EXPERIMENT_KPI_DASHBOARD feature flag must be true');
-  console.log('  ✅ Passed: EXPERIMENT_KPI_DASHBOARD is enabled');
+  console.log('  [PASS] Passed: EXPERIMENT_KPI_DASHBOARD is enabled');
 
   // Setup Test Express Server & User
   const app = express();
@@ -65,7 +65,7 @@ async function runKpiDashboardTests() {
     assert.strictEqual(initialData.kpis.score.avg_score, 0);
     assert.strictEqual(initialData.kpis.habits.total, 0);
     assert.strictEqual(initialData.kpis.habits.total_check_ins, 0);
-    console.log('  ✅ Passed: Correct zero-state KPIs returned');
+    console.log('  [PASS] Passed: Correct zero-state KPIs returned');
 
     // Test 3: Create two daily habits -> 0% completion rate
     console.log('\nTest 3: Create 2 habits and verify pending / 0% completion rate');
@@ -99,7 +99,7 @@ async function runKpiDashboardTests() {
     assert.strictEqual(postCreateData.kpis.today.completion_rate, 0);
     assert.strictEqual(postCreateData.kpis.habits.total, 2);
     assert.strictEqual(postCreateData.kpis.streaks.active_count, 0);
-    console.log('  ✅ Passed: 2 habits due today, pending=2, completion_rate=0%');
+    console.log('  [PASS] Passed: 2 habits due today, pending=2, completion_rate=0%');
 
     // Test 4: Check in 1 habit -> 50% completion rate
     console.log('\nTest 4: Check in 1 of 2 habits -> 50% completion rate');
@@ -122,7 +122,7 @@ async function runKpiDashboardTests() {
     assert.strictEqual(halfData.kpis.streaks.total_streak_days, 1);
     assert.ok(halfData.kpis.score.avg_score > 0, 'Average score should increase with check-in');
     assert.strictEqual(halfData.kpis.habits.total_check_ins, 1);
-    console.log('  ✅ Passed: completion_rate=50%, active_streaks=1, avg_score updated');
+    console.log('  [PASS] Passed: completion_rate=50%, active_streaks=1, avg_score updated');
 
     // Test 5: Check in 2nd habit -> 100% completion rate
     console.log('\nTest 5: Check in 2nd habit -> 100% completion rate & 2 active streaks');
@@ -146,7 +146,7 @@ async function runKpiDashboardTests() {
       fullData.kpis.score.distribution.building +
       fullData.kpis.score.distribution.strong +
       fullData.kpis.score.distribution.mastered, 2);
-    console.log('  ✅ Passed: completion_rate=100%, pending=0, active_streaks=2');
+    console.log('  [PASS] Passed: completion_rate=100%, pending=0, active_streaks=2');
 
     // Test 6: Uncheck 1 habit -> dynamic recalculation back to 50%
     console.log('\nTest 6: Uncheck habit -> Dynamic recalculation');
@@ -164,7 +164,7 @@ async function runKpiDashboardTests() {
     assert.strictEqual(afterUncheckData.kpis.today.completed, 1);
     assert.strictEqual(afterUncheckData.kpis.today.completion_rate, 50);
     assert.strictEqual(afterUncheckData.kpis.streaks.active_count, 1);
-    console.log('  ✅ Passed: completion_rate decreased back to 50%, active_streaks=1');
+    console.log('  [PASS] Passed: completion_rate decreased back to 50%, active_streaks=1');
 
     // Test 7: Feature Flag Disabled Fallback (Isolation)
     console.log('\nTest 7: Feature Flag Isolation & Fallback');
@@ -175,7 +175,7 @@ async function runKpiDashboardTests() {
     assert.strictEqual(disabledData.enabled, false);
     assert.strictEqual(disabledData.kpis, null);
     features.EXPERIMENT_KPI_DASHBOARD = true;
-    console.log('  ✅ Passed: Disabled feature flag returns clean fallback without errors');
+    console.log('  [PASS] Passed: Disabled feature flag returns clean fallback without errors');
 
     // Test 8: Frontend Widget DOM rendering verification
     console.log('\nTest 8: Frontend Widget DOM Rendering');
@@ -231,9 +231,9 @@ async function runKpiDashboardTests() {
     assert.strictEqual(mockElements['kpi-active-streaks'].innerText, 2);
     assert.strictEqual(mockElements['kpi-total-habits'].innerText, 2);
     assert.strictEqual(mockElements['kpi-total-checkins'].innerText, 2);
-    console.log('  ✅ Passed: renderKpiWidgets correctly rendered real-time metrics to DOM elements');
+    console.log('  [PASS] Passed: renderKpiWidgets correctly rendered real-time metrics to DOM elements');
 
-    console.log('\n🎉 ALL 8 SUMMARY KPI DASHBOARD TESTS PASSED SUCCESSFULLY!\n');
+    console.log('\n[SUCCESS] ALL 8 SUMMARY KPI DASHBOARD TESTS PASSED SUCCESSFULLY!\n');
   } finally {
     // Cleanup test user and habits
     if (habit1Id) {
@@ -252,6 +252,6 @@ async function runKpiDashboardTests() {
 }
 
 runKpiDashboardTests().catch(err => {
-  console.error('\n❌ Test failed with error:', err);
+  console.error('\n[FAIL] Test failed with error:', err);
   process.exit(1);
 });

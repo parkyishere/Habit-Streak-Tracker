@@ -4,7 +4,7 @@ const path = require('path');
 const vm = require('vm');
 
 async function runDashboardFrontendTests() {
-  console.log('\n🧪 Starting Dashboard Frontend Tests...\n');
+  console.log('\n[START] Starting Dashboard Frontend Tests...\n');
 
   // Read html and js
   const htmlContent = fs.readFileSync(path.join(__dirname, 'public', 'dashboard.html'), 'utf-8');
@@ -309,13 +309,13 @@ async function runDashboardFrontendTests() {
   for (const listener of domListeners) {
     await listener();
   }
-  console.log('  ✅ Passed: DOMContentLoaded executed cleanly without crashing');
+  console.log('  [PASS] Passed: DOMContentLoaded executed cleanly without crashing');
 
   // Test 1b: loadWeeklyTargets is defined and callable
   console.log('\nTest 2: loadWeeklyTargets Reference & Execution');
   assert.strictEqual(typeof sandbox.window.loadWeeklyTargets, 'function', 'loadWeeklyTargets must be a defined function');
   await sandbox.window.loadWeeklyTargets();
-  console.log('  ✅ Passed: loadWeeklyTargets exists and executed without throwing');
+  console.log('  [PASS] Passed: loadWeeklyTargets exists and executed without throwing');
 
   // Test 2: Category dropdowns are populated from /api/categories
   console.log('\nTest 3: Category Select Dropdowns Population');
@@ -328,14 +328,14 @@ async function runDashboardFrontendTests() {
   assert.ok(habitCatValues.includes('1'), 'habit-category must include category id 1 (Work)');
   assert.ok(habitCatValues.includes('2'), 'habit-category must include category id 2 (Health)');
   assert.ok(habitCatValues.includes('3'), 'habit-category must include category id 3 (Code)');
-  console.log('  ✅ Passed: Both create and edit category dropdowns populated with backend categories');
+  console.log('  [PASS] Passed: Both create and edit category dropdowns populated with backend categories');
 
   // Test 2b: openCreateModal populates categories
   console.log('\nTest 4: openCreateModal Functionality');
   assert.strictEqual(typeof sandbox.window.openCreateModal, 'function', 'openCreateModal must be defined');
   await sandbox.window.openCreateModal();
   assert.ok(habitCatSelect.options.length >= 4, 'openCreateModal ensures category options populated');
-  console.log('  ✅ Passed: openCreateModal populates categories correctly');
+  console.log('  [PASS] Passed: openCreateModal populates categories correctly');
 
   // Test 3: "All Habits" button interactivity and unfiltered view
   console.log('\nTest 5: "All Habits" Button Interactivity & Unfiltered Habit View');
@@ -354,12 +354,12 @@ async function runDashboardFrontendTests() {
   // Habits list must render all 3 habits (unfiltered)
   const habitsList = elementsById['habits-list'];
   assert.strictEqual(habitsList.children.length, 3, 'Habits grid must display all 3 habits in unfiltered view');
-  console.log('  ✅ Passed: "All Habits" button triggered unfiltered view with all 3 habits rendered');
+  console.log('  [PASS] Passed: "All Habits" button triggered unfiltered view with all 3 habits rendered');
 
-  console.log('\n🎉 ALL DASHBOARD FRONTEND TESTS PASSED SUCCESSFULLY!\n');
+  console.log('\n[SUCCESS] ALL DASHBOARD FRONTEND TESTS PASSED SUCCESSFULLY!\n');
 }
 
 runDashboardFrontendTests().catch(err => {
-  console.error('❌ Test failed:', err);
+  console.error('[FAIL] Test failed:', err);
   process.exit(1);
 });

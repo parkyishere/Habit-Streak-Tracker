@@ -3,7 +3,7 @@ const { calculateStreakMetrics, calculateHabitScore, getHabitScoreTier, isHabitD
 const pool = require('./config/db');
 
 async function runTests() {
-  console.log('🧪 Starting Exponential Habit Scoring Tests...\n');
+  console.log('[START] Starting Exponential Habit Scoring Tests...\n');
 
   // --- 1. Math: New Habit (No Check-ins) ---
   console.log('Test 1: New Habit starts with score 0.0');
@@ -11,7 +11,7 @@ async function runTests() {
   const m1 = calculateStreakMetrics(newHabit, [], new Date('2026-09-20'));
   assert.strictEqual(m1.score, 0.0, 'Score should be 0.0 for no check-ins');
   assert.strictEqual(m1.currentStreak, 0);
-  console.log('  ✅ Passed: Score = 0.0, Streak = 0\n');
+  console.log('  [PASS] Passed: Score = 0.0, Streak = 0\n');
 
   // --- 2. Math: 1 Check-in today ---
   console.log('Test 2: Single check-in increases score exponentially');
@@ -19,7 +19,7 @@ async function runTests() {
   const m2 = calculateStreakMetrics(newHabit, [todayStr], new Date(todayStr));
   assert.strictEqual(m2.score, 8.0, 'Score should be 8.0 after 1 check-in');
   assert.strictEqual(m2.currentStreak, 1);
-  console.log(`  ✅ Passed: Score = ${m2.score}%, Streak = ${m2.currentStreak}\n`);
+  console.log(`  [PASS] Passed: Score = ${m2.score}%, Streak = ${m2.currentStreak}\n`);
 
   // --- 3. Math: Consecutive 7 and 30 day streaks ---
   console.log('Test 3: Long streaks approach 100% asymptotically');
@@ -42,7 +42,7 @@ async function runTests() {
   const m3_30 = calculateStreakMetrics(newHabit, streak30Dates, new Date('2026-09-20'));
   console.log(`  30 consecutive days: Score = ${m3_30.score}%, Streak = ${m3_30.currentStreak}`);
   assert.ok(m3_30.score > 90, '30-day score should be >90%');
-  console.log('  ✅ Passed: Long streaks approach 100%\n');
+  console.log('  [PASS] Passed: Long streaks approach 100%\n');
 
   // --- 4. Math: Graceful Decay on Missed Scheduled Day ---
   console.log('Test 4: Graceful decay on missed day instead of resetting to zero');
@@ -59,7 +59,7 @@ async function runTests() {
   // Notice streak resets to 0 (because yesterday was missed), but score decays gracefully to ~84.5%!
   assert.strictEqual(m4.currentStreak, 0, 'Binary streak resets to 0');
   assert.ok(m4.score >= 80, `Score should gracefully retain momentum (~84.5%), got ${m4.score}`);
-  console.log('  ✅ Passed: Score retained >80% while streak reset to 0\n');
+  console.log('  [PASS] Passed: Score retained >80% while streak reset to 0\n');
 
   // --- 5. Math: Rest Days do NOT decay score ---
   console.log('Test 5: Rest days in custom frequencies do not decay score');
@@ -74,7 +74,7 @@ async function runTests() {
   console.log(`  Sunday-only habit with 2 check-ins: Score = ${m5.score}%`);
   // Mon-Sat were rest days, so score should NOT have decayed 6 times!
   assert.strictEqual(m5.score, 15.4, 'Score should be exactly 15.4 (2 completed due days, 0 misses)');
-  console.log('  ✅ Passed: Rest days did not penalize score\n');
+  console.log('  [PASS] Passed: Rest days did not penalize score\n');
 
   // --- 6. Math: Unchecking Recalculates Deterministically ---
   console.log('Test 6: Unchecking a check-in recalculates cleanly without drift');
@@ -84,7 +84,7 @@ async function runTests() {
   const m6_unchecked = calculateStreakMetrics(newHabit, uncheckedList, new Date('2026-09-20'));
   assert.ok(m6_checked.score > m6_unchecked.score, 'Checked score must be higher than unchecked');
   console.log(`  Checked: ${m6_checked.score}% -> Unchecked: ${m6_unchecked.score}%`);
-  console.log('  ✅ Passed: Clean deterministic recalculation\n');
+  console.log('  [PASS] Passed: Clean deterministic recalculation\n');
 
   // --- 7. Tiers Helper ---
   console.log('Test 7: Habit Strength Tier metadata');
@@ -92,7 +92,7 @@ async function runTests() {
   assert.strictEqual(getHabitScoreTier(65).tier, 'strong');
   assert.strictEqual(getHabitScoreTier(35).tier, 'building');
   assert.strictEqual(getHabitScoreTier(10).tier, 'starting');
-  console.log('  ✅ Passed: Tiers categorized correctly\n');
+  console.log('  [PASS] Passed: Tiers categorized correctly\n');
 
   // --- 8. Database Schema Verification ---
   console.log('Test 8: Database columns in PostgreSQL');
@@ -111,13 +111,13 @@ async function runTests() {
   `);
   assert.strictEqual(habitsCol.rows.length, 1, 'habits table must have score column');
   console.log(`  habits.score column: type=${habitsCol.rows[0].data_type}, default=${habitsCol.rows[0].column_default}`);
-  console.log('  ✅ Passed: Database schema verified\n');
+  console.log('  [PASS] Passed: Database schema verified\n');
 
-  console.log('🎉 ALL 8 TESTS PASSED SUCCESSFULLY!');
+  console.log('[SUCCESS] ALL 8 TESTS PASSED SUCCESSFULLY!');
   process.exit(0);
 }
 
 runTests().catch(err => {
-  console.error('❌ Test failed:', err);
+  console.error('[FAIL] Test failed:', err);
   process.exit(1);
 });

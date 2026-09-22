@@ -153,9 +153,9 @@
     if (selectedSortText) {
       const sortLabels = {
         'default': 'Default',
-        'score-desc': '⚡ Strength',
-        'streak-desc': '🔥 Streak',
-        'alpha-asc': '🔤 A to Z'
+        'score-desc': 'Strength',
+        'streak-desc': 'Streak',
+        'alpha-asc': 'A to Z'
       };
       selectedSortText.innerText = sortLabels[currentSortOption] || 'Default';
     }
@@ -256,7 +256,7 @@
         if (data.action === 'created') {
           showToast(`${data.username} added task: "${data.title}"`);
         } else if (data.action === 'completed') {
-          showToast(`🎉 ${data.username} completed task: "${data.title}"`);
+          showToast(`${data.username} completed task: "${data.title}"`);
         }
         loadTodos();
       }
@@ -321,7 +321,7 @@
       if (kpis.today.total_due === 0) {
         completionNoteEl.innerText = 'No habits scheduled for today';
       } else if (kpis.today.pending === 0) {
-        completionNoteEl.innerText = 'All daily habits completed! 🎉';
+        completionNoteEl.innerText = 'All daily habits completed!';
       } else {
         completionNoteEl.innerText = `${kpis.today.pending} habit${kpis.today.pending === 1 ? '' : 's'} pending today`;
       }
@@ -487,7 +487,7 @@
       if (currentTab === 'due') {
         habitsList.innerHTML = `
           <div class="empty-state">
-            <h4>🎉 You're all caught up for today!</h4>
+            <h4>You are all caught up for today!</h4>
             <p>No habits are scheduled due today. Enjoy your rest day or switch to "All Habits" to see your full schedule.</p>
           </div>
         `;
@@ -526,7 +526,7 @@
 
       let quantBadge = '';
       if (isQuant) {
-        quantBadge = `<span class="badge quant-badge">🎯 Target: ${targetPerDay} ${escapeHtml(unitStr)}/day</span>`;
+        quantBadge = `<span class="badge quant-badge">Target: ${targetPerDay} ${escapeHtml(unitStr)}/day</span>`;
       }
 
       let categoryBadgeHtml = '';
@@ -544,11 +544,11 @@
       let quantProgressHtml = '';
       if (isQuant) {
         const percent = Math.min(100, Math.round((todayCount / targetPerDay) * 100));
-        const goalBadge = isCompleted ? `<span class="quant-goal-met-badge">✓ Target Reached</span>` : '';
+        const goalBadge = isCompleted ? `<span class="quant-goal-met-badge">Target Reached</span>` : '';
         quantProgressHtml = `
           <div class="quant-progress-box">
             <div class="quant-progress-header">
-              <span class="quant-progress-label">📊 Daily Progress: ${goalBadge}</span>
+              <span class="quant-progress-label">Daily Progress: ${goalBadge}</span>
               <span class="quant-progress-count">${todayCount} / ${targetPerDay} ${escapeHtml(unitStr)} (${percent}%)</span>
             </div>
             <div class="quant-progress-track" title="${todayCount} of ${targetPerDay} ${escapeHtml(unitStr)} completed today">
@@ -568,10 +568,10 @@
               + Log Progress (${todayCount}/${targetPerDay} ${escapeHtml(unitStr)})
             </button>
             <button class="btn secondary quant-dec-btn" data-id="${habit.id}" title="Decrease count (-1)" ${todayCount <= 0 ? 'disabled' : ''}>
-              −
+              -
             </button>
             <button class="btn text-btn quant-reset-btn" data-id="${habit.id}" title="Reset today's count" ${todayCount <= 0 ? 'disabled' : ''}>
-              ↺ Reset
+              Reset
             </button>
           </div>
         `;
@@ -586,11 +586,11 @@
       let weeklyProgressHtml = '';
       if (appFeatures.EXPERIMENT_WEEKLY_TARGETS && isWeekly && habit.weekly_progress) {
         const wp = habit.weekly_progress;
-        const goalBadge = wp.target_met ? `<span class="weekly-goal-met-badge">✓ Goal Met</span>` : '';
+        const goalBadge = wp.target_met ? `<span class="weekly-goal-met-badge">Goal Met</span>` : '';
         weeklyProgressHtml = `
           <div class="weekly-progress-box">
             <div class="weekly-progress-header">
-              <span class="weekly-progress-label">🎯 Weekly Target: ${goalBadge}</span>
+              <span class="weekly-progress-label">Weekly Target: ${goalBadge}</span>
               <span class="weekly-progress-count">${wp.completed} / ${wp.target} days (${wp.percent}%)</span>
             </div>
             <div class="weekly-progress-track" title="${wp.completed} of ${wp.target} days completed this week">
@@ -628,11 +628,11 @@
         <p class="habit-desc">${escapeHtml(habit.description || 'No description provided')}</p>
         ${quantProgressHtml}
         ${weeklyProgressHtml}
-        <div class="streak-badge">🔥 ${streakLabel}: ${habit.current_streak || 0} ${streakUnit} | Best: ${habit.longest_streak || 0} ${streakUnit}</div>
+        <div class="streak-badge">${streakLabel}: ${habit.current_streak || 0} ${streakUnit} | Best: ${habit.longest_streak || 0} ${streakUnit}</div>
         <div class="habit-score-container">
           <div class="score-meta">
             <span class="score-label">
-              <span class="score-icon">⚡</span> Strength: <strong class="score-num">${scorePercentStr}%</strong>
+              Strength: <strong class="score-num">${scorePercentStr}%</strong>
             </span>
             <span class="score-tier-badge ${tierClass}">${tierLabel}</span>
           </div>
@@ -854,7 +854,7 @@
         if (scoreBadge) {
           const s = Number(data.score !== undefined ? data.score : (data.habit && data.habit.score) || 0);
           const info = getScoreTierInfo(s);
-          scoreBadge.innerText = `⚡ Habit Strength: ${s.toFixed(1)}% (${info.label})`;
+          scoreBadge.innerText = `Habit Strength: ${s.toFixed(1)}% (${info.label})`;
           scoreBadge.className = `score-tier-badge ${info.tierClass}`;
           scoreBadge.style.display = 'inline-block';
         }
@@ -1188,17 +1188,14 @@
     if (displayedTodos.length === 0) {
       const emptyMessages = {
         active: {
-          icon: '✨',
           title: 'No active tasks pending',
-          desc: 'All clear! Add a new to-do task above or check back later.'
+          desc: 'All clear. Add a new to-do task above or check back later.'
         },
         completed: {
-          icon: '📝',
           title: 'No completed tasks yet',
           desc: 'Check off tasks as you finish them to see them here.'
         },
         all: {
-          icon: '🎯',
           title: 'No to-do tasks found',
           desc: 'Use the quick add bar above to create your first to-do.'
         }
@@ -1206,7 +1203,6 @@
       const info = emptyMessages[currentTodoFilter] || emptyMessages.all;
       listEl.innerHTML = `
         <div class="todo-empty-state">
-          <span class="todo-empty-icon">${info.icon}</span>
           <h4>${info.title}</h4>
           <p>${info.desc}</p>
         </div>
@@ -1226,13 +1222,13 @@
       if (todo.due_date) {
         const dueDateStr = getLocalDateStr(todo.due_date);
         if (todo.completed) {
-          dueBadgeHtml = `<span class="todo-due-badge todo-due-completed">✓ ${formatDisplayDate(dueDateStr)}</span>`;
+          dueBadgeHtml = `<span class="todo-due-badge todo-due-completed">Completed (${formatDisplayDate(dueDateStr)})</span>`;
         } else if (dueDateStr < todayStr) {
-          dueBadgeHtml = `<span class="todo-due-badge todo-due-overdue" title="Overdue">⚠️ ${formatDisplayDate(dueDateStr)} (Overdue)</span>`;
+          dueBadgeHtml = `<span class="todo-due-badge todo-due-overdue" title="Overdue">Overdue (${formatDisplayDate(dueDateStr)})</span>`;
         } else if (dueDateStr === todayStr) {
-          dueBadgeHtml = `<span class="todo-due-badge todo-due-today" title="Due Today">📅 Today</span>`;
+          dueBadgeHtml = `<span class="todo-due-badge todo-due-today" title="Due Today">Due Today</span>`;
         } else {
-          dueBadgeHtml = `<span class="todo-due-badge todo-due-upcoming" title="Upcoming">📅 ${formatDisplayDate(dueDateStr)}</span>`;
+          dueBadgeHtml = `<span class="todo-due-badge todo-due-upcoming" title="Upcoming">Due ${formatDisplayDate(dueDateStr)}</span>`;
         }
       }
 
@@ -1288,7 +1284,7 @@
       if (data.success && data.todo) {
         Object.assign(todo, data.todo);
         renderTodoList();
-        showToast(todo.completed ? `🎉 Task "${todo.title}" completed!` : `Task "${todo.title}" moved to active.`);
+        showToast(todo.completed ? `Task "${todo.title}" completed.` : `Task "${todo.title}" moved to active.`);
       } else {
         todo.completed = prevStatus;
         renderTodoList();

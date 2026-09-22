@@ -6,7 +6,7 @@ const http = require('http');
 const gatekeeper = require('./middleware/gatekeeper');
 
 async function testGatekeeper() {
-  console.log('🧪 Starting Compound Gatekeeper Tests...\n');
+  console.log('[START] Starting Compound Gatekeeper Tests...\n');
 
   const app = express();
   app.use(express.json());
@@ -37,7 +37,7 @@ async function testGatekeeper() {
     assert.strictEqual(res1.status, 302, 'Should return 302 redirect');
     const loc1 = res1.headers.get('location');
     assert.ok(loc1.includes('/gatekeeper/login'), 'Redirect target should be /gatekeeper/login');
-    console.log('  ✅ Passed: Redirected to', loc1);
+    console.log('  [PASS] Passed: Redirected to', loc1);
 
     // Test 2: Gatekeeper login page has blank form inputs and zero hardcoded credentials
     console.log('\nTest 2: Gatekeeper login page renders blank form inputs');
@@ -49,7 +49,7 @@ async function testGatekeeper() {
     assert.ok(html.includes('<input type="password" id="password" name="password" placeholder="Password" required autocomplete="off">'), 'Password input must be blank');
     assert.ok(!html.includes('value="parkytest"'), 'Should not pre-fill username');
     assert.ok(!html.includes('value="auth@testing123"'), 'Should not pre-fill password');
-    console.log('  ✅ Passed: Login form rendered with blank credentials');
+    console.log('  [PASS] Passed: Login form rendered with blank credentials');
 
     // Test 3: Invalid credentials rejected
     console.log('\nTest 3: Invalid credentials return error redirect');
@@ -63,7 +63,7 @@ async function testGatekeeper() {
     });
     assert.strictEqual(res3.status, 302);
     assert.ok(res3.headers.get('location').includes('error=invalid'));
-    console.log('  ✅ Passed: Invalid credentials rejected with error redirect');
+    console.log('  [PASS] Passed: Invalid credentials rejected with error redirect');
 
     // Test 4: Valid credentials sets site_access_token cookie and redirects to target
     console.log('\nTest 4: Valid credentials authenticate and issue cookie');
@@ -86,7 +86,7 @@ async function testGatekeeper() {
 
     // Extract cookie value for authenticated requests
     const cookieVal = setCookie.split(';')[0];
-    console.log('  ✅ Passed: Authenticated and received cookie:', cookieVal.slice(0, 30) + '...');
+    console.log('  [PASS] Passed: Authenticated and received cookie:', cookieVal.slice(0, 30) + '...');
 
     // Test 5: Authenticated request accesses '/' without gatekeeper or forced in-app login
     console.log('\nTest 5: Authenticated visitor accesses landing page normally');
@@ -96,7 +96,7 @@ async function testGatekeeper() {
     assert.strictEqual(res5.status, 200, 'Landing page should return 200 OK');
     const body5 = await res5.text();
     assert.ok(body5.includes('Habit Tracker') || body5.includes('habit'), 'Should serve standard landing page');
-    console.log('  ✅ Passed: Landing page loaded normally with HTTP 200');
+    console.log('  [PASS] Passed: Landing page loaded normally with HTTP 200');
 
     // Test 6: Authenticated visitor accesses protected API route
     console.log('\nTest 6: Authenticated visitor accesses protected API route');
@@ -106,7 +106,7 @@ async function testGatekeeper() {
     assert.strictEqual(res6.status, 200);
     const data6 = await res6.json();
     assert.strictEqual(data6.data, 'secure payload');
-    console.log('  ✅ Passed: Protected API accessed successfully');
+    console.log('  [PASS] Passed: Protected API accessed successfully');
 
     // Test 7: Logout clears cookie
     console.log('\nTest 7: Logout clears site_access_token cookie');
@@ -117,15 +117,15 @@ async function testGatekeeper() {
     assert.strictEqual(res7.status, 302);
     const logoutCookie = res7.headers.get('set-cookie');
     assert.ok(logoutCookie.includes('site_access_token=;'), 'Cookie should be cleared on logout');
-    console.log('  ✅ Passed: Logout successfully cleared cookie');
+    console.log('  [PASS] Passed: Logout successfully cleared cookie');
 
-    console.log('\n🎉 ALL 7 COMPOUND GATEKEEPER TESTS PASSED SUCCESSFULLY!\n');
+    console.log('\n[SUCCESS] ALL 7 COMPOUND GATEKEEPER TESTS PASSED SUCCESSFULLY!\n');
   } finally {
     server.close();
   }
 }
 
 testGatekeeper().catch(err => {
-  console.error('\n❌ Gatekeeper test failed:', err);
+  console.error('\n[FAIL] Gatekeeper test failed:', err);
   process.exit(1);
 });

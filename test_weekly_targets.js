@@ -7,7 +7,7 @@ const jwt = require('jsonwebtoken');
 const http = require('http');
 
 async function runWeeklyTargetTests() {
-  console.log('🧪 Starting Flexible Weekly Targets Isolated Tests...\n');
+  console.log('[START] Starting Flexible Weekly Targets Isolated Tests...\n');
 
   // --- Test 1: Week Boundaries (Monday to Sunday) ---
   console.log('Test 1: ISO Week Boundaries calculation');
@@ -20,7 +20,7 @@ async function runWeeklyTargetTests() {
   const boundsWednesday = weeklyEngine.getWeekBounds('2026-09-16');
   assert.strictEqual(boundsWednesday.mondayStr, '2026-09-14');
   assert.strictEqual(boundsWednesday.sundayStr, '2026-09-20');
-  console.log(`  ✅ Passed: Week boundaries for 2026-09-20: ${boundsSunday.mondayStr} to ${boundsSunday.sundayStr}\n`);
+  console.log(`  [PASS] Passed: Week boundaries for 2026-09-20: ${boundsSunday.mondayStr} to ${boundsSunday.sundayStr}\n`);
 
   // --- Test 2: Weekly Progress Calculation ---
   console.log('Test 2: Weekly progress calculation (N / Target days)');
@@ -46,7 +46,7 @@ async function runWeeklyTargetTests() {
   assert.strictEqual(p3.percent, 100);
   assert.strictEqual(p3.remaining, 0);
   console.log(`  3 check-ins: ${p3.completed}/${p3.target} (${p3.percent}%), target_met=${p3.target_met}`);
-  console.log('  ✅ Passed: Progress and target_met accurately tracked\n');
+  console.log('  [PASS] Passed: Progress and target_met accurately tracked\n');
 
   // --- Test 3: Due Status Evaluation ---
   console.log('Test 3: Due status (due when target is pending, goal met when target achieved)');
@@ -55,7 +55,7 @@ async function runWeeklyTargetTests() {
 
   const dueAfterGoal = isHabitDueToday(habit3x, '2026-09-20', ['2026-09-15', '2026-09-17', '2026-09-19']);
   assert.strictEqual(dueAfterGoal, false, 'Should NOT be mandatory due once weekly target is met');
-  console.log('  ✅ Passed: Due status adapts dynamically to weekly target completion\n');
+  console.log('  [PASS] Passed: Due status adapts dynamically to weekly target completion\n');
 
   // --- Test 4: Weekly Streak & Scoring Calculation ---
   console.log('Test 4: Weekly streak metrics across calendar weeks');
@@ -73,14 +73,14 @@ async function runWeeklyTargetTests() {
   console.log(`  2 consecutive target-met weeks: Streak = ${streakMetrics.currentStreak} weeks, Best = ${streakMetrics.longestStreak} weeks, Score = ${streakMetrics.score}%`);
   assert.strictEqual(streakMetrics.currentStreak, 2, 'Streak should be 2 weeks');
   assert.ok(streakMetrics.score > 0, 'Score should be positive');
-  console.log('  ✅ Passed: Weekly streaks calculate consecutively\n');
+  console.log('  [PASS] Passed: Weekly streaks calculate consecutively\n');
 
   // --- Test 5: Frequency Label ---
   console.log('Test 5: Frequency label formatting');
   const label = formatFrequencyLabel('weekly_target', 4, { target_per_week: 4 });
   assert.strictEqual(label, '4x / week');
   console.log(`  Formatted label: "${label}"`);
-  console.log('  ✅ Passed: Frequency label formatted correctly\n');
+  console.log('  [PASS] Passed: Frequency label formatted correctly\n');
 
   // --- Test 6: Feature Flag Isolation & Disabling ---
   console.log('Test 6: Feature flag toggling / isolation');
@@ -96,7 +96,7 @@ async function runWeeklyTargetTests() {
     assert.strictEqual(typeof fallbackDue, 'boolean');
     const fallbackLabel = formatFrequencyLabel('weekly_target');
     assert.strictEqual(fallbackLabel, 'Weekly Target');
-    console.log('  ✅ Passed: Clean fallback when feature flag is disabled\n');
+    console.log('  [PASS] Passed: Clean fallback when feature flag is disabled\n');
   } finally {
     features.EXPERIMENT_WEEKLY_TARGETS = originalFlag;
   }
@@ -184,16 +184,16 @@ async function runWeeklyTargetTests() {
     // Clean up
     await pool.query('DELETE FROM users WHERE id = $1', [user.id]);
     console.log('  7.5: Test user cleaned up');
-    console.log('  ✅ Passed: Full API lifecycle for Weekly Targets succeeded\n');
+    console.log('  [PASS] Passed: Full API lifecycle for Weekly Targets succeeded\n');
   } finally {
     server.close();
   }
 
-  console.log('🎉 ALL 7 WEEKLY TARGET TESTS PASSED SUCCESSFULLY!');
+  console.log('[SUCCESS] ALL 7 WEEKLY TARGET TESTS PASSED SUCCESSFULLY!');
   process.exit(0);
 }
 
 runWeeklyTargetTests().catch(err => {
-  console.error('❌ Weekly target test failed:', err);
+  console.error('[FAIL] Weekly target test failed:', err);
   process.exit(1);
 });
