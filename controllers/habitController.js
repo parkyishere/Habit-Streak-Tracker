@@ -1,6 +1,7 @@
 const pool = require('../config/db');
 const features = require('../config/features');
 const { isHabitDueToday, formatFrequencyLabel, normalizeDate, calculateStreakMetrics, getLocalDateStr, weeklyTargetEngine } = require('../utils/dateHelpers');
+const javaBridge = require('../utils/javaBridge');
 
 // Get All Habits for Logged-In User
 exports.getHabits = async (req, res) => {
@@ -100,7 +101,19 @@ exports.createHabit = async (req, res) => {
     let targetPerDay = 1;
     let habitUnit = '';
     if (features.EXPERIMENT_QUANTIFIABLE_HABITS) {
-      targetPerDay = Math.max(1, parseInt(target_per_day || 1, 10));
+      if (req.body.target_per_day !== undefined) {
+        const parsedTarget = parseInt(req.body.target_per_day, 10);
+        if (parsedTarget <= 0 || isNaN(parsedTarget)) {
+          const valRes = await javaBridge.validateHabit({ name: title, target_per_day: req.body.target_per_day, unit });
+          return res.status(400).json({
+            success: false,
+            error: valRes.error || 'Habit target must be greater than 0',
+            errorCode: valRes.errorCode || 'INVALID_TARGET',
+            exceptionClass: valRes.exceptionClass || 'InvalidTargetException'
+          });
+        }
+        targetPerDay = parsedTarget;
+      }
       habitUnit = typeof unit === 'string' ? unit.trim().slice(0, 50) : '';
     }
 
@@ -185,7 +198,19 @@ exports.updateHabit = async (req, res) => {
     let targetPerDay = undefined;
     let habitUnit = undefined;
     if (features.EXPERIMENT_QUANTIFIABLE_HABITS) {
-      if (target_per_day !== undefined) targetPerDay = Math.max(1, parseInt(target_per_day, 10));
+      if (target_per_day !== undefined) {
+        const parsedTarget = parseInt(target_per_day, 10);
+        if (parsedTarget <= 0 || isNaN(parsedTarget)) {
+          const valRes = await javaBridge.validateHabit({ name: title || 'Habit', target_per_day });
+          return res.status(400).json({
+            success: false,
+            error: valRes.error || 'Habit target must be greater than 0',
+            errorCode: valRes.errorCode || 'INVALID_TARGET',
+            exceptionClass: valRes.exceptionClass || 'InvalidTargetException'
+          });
+        }
+        targetPerDay = parsedTarget;
+      }
       if (unit !== undefined) habitUnit = typeof unit === 'string' ? unit.trim().slice(0, 50) : '';
     }
 
@@ -486,6 +511,59 @@ exports.toggleCheckIn = async (req, res) => {
       longest_streak: newLongest,
       score: newScore
     });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+// Validate habit definition using Java Core
+exports.validateWithJavaCore = async (req, res) => {
+  try {
+    const validation = await javaBridge.validateHabit(req.body);
+    if (!validation.valid) {
+      return res.status(400).json({
+        success: false,
+        error: validation.error,
+        errorCode: validation.errorCode,
+        exceptionClass: validation.exceptionClass
+      });
+    }
+    res.json({ success: true, ...validation });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+// Evaluate habit metrics using Java Core offline engine
+exports.evaluateWithJavaCore = async (req, res) => {
+  const { habitId } = req.params;
+  const userId = req.user.id;
+
+  try {
+    const { rows } = await pool.query('SELECT * FROM habits WHERE id = $1 AND user_id = $2', [habitId, userId]);
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Habit not found' });
+    }
+    const habit = rows[0];
+
+    const { rows: logs } = await pool.query('SELECT check_in_date FROM check_ins WHERE habit_id = $1 AND status = true', [habitId]);
+    const checkInDates = logs.map(l => getLocalDateStr(l.check_in_date));
+
+    const evalResult = await javaBridge.evaluateHabit(
+      {
+        name: habit.title,
+        current_streak: habit.current_streak,
+        longest_streak: habit.longest_streak,
+        score: parseFloat(habit.score) || 0.0,
+        target_per_day: habit.target_per_day,
+        unit: habit.unit,
+        frequencyType: habit.frequency_type,
+        createdAt: getLocalDateStr(habit.created_at)
+      },
+      checkInDates
+    );
+
+    res.json({ success: true, ...evalResult });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }

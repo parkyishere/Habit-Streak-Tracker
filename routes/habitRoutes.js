@@ -9,11 +9,13 @@ router.use(authMiddleware);
 // Base CRUD routes
 router.get('/', habitController.getHabits);
 router.post('/', habitController.createHabit);
+router.post('/validate-core', habitController.validateWithJavaCore);
 router.put('/:habitId', habitController.updateHabit);
 router.delete('/:habitId', habitController.deleteHabit);
 
 // History & check-in routes
 router.get('/:habitId/history', habitController.getHabitHistory);
 router.post('/:habitId/checkin', habitController.toggleCheckIn);
+router.post('/:habitId/evaluate-core', habitController.evaluateWithJavaCore);
 
 module.exports = router;
