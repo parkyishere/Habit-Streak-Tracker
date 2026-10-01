@@ -3,8 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Added Description for SEO (Screenshot Point 5) -->
+  <meta name="description" content="A simple, team-oriented habit streak tracker featuring real-time activity feeds and analytical progress tracking.">
   <title>Habit Tracker - Home</title>
   <link rel="stylesheet" href="css/style.css">
+  <!-- Added Web Icon/Favicon (Screenshot Point 2) -->
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
 </head>
 <body>
   <nav class="navbar">
@@ -21,7 +25,8 @@
 
   <div class="container">
     <div class="hero-card">
-      <h1>Track Habits. Build Consistency. Reach Your Goals.</h1>
+      <!-- Dynamic greeting container added here (Screenshot Point 6) -->
+      <h1 id="dynamic-greeting">Track Habits. Build Consistency. Reach Your Goals.</h1>
       <p>A simple, team-oriented habit streak tracker featuring real-time activity feeds and analytical progress tracking.</p>
       <div class="hero-buttons">
         <a href="/register.html" class="btn primary">Get Started Free</a>
@@ -43,6 +48,12 @@
         <p>Visual statistics and completion metrics stored securely in SQLite.</p>
       </div>
     </div>
+
+    <!-- Added Content to make it more interesting (Screenshot Point 3) -->
+    <div class="info-section" style="margin-top: 40px; text-align: center; padding: 20px; background: rgba(0,0,0,0.05); border-radius: 8px;">
+      <h2>How It Works</h2>
+      <p style="margin-top: 10px; line-height: 1.6;">Create an account, set your daily goals, and check them off everyday. Watch your streak grow and stay accountable with your peers!</p>
+    </div>
   </div>
 
   <footer class="footer">
@@ -51,5 +62,18 @@
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="js/common.js"></script>
+  
+  <!-- Dynamic Experience Script (Screenshot Point 6) -->
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const hour = new Date().getHours();
+      let greeting = 'Good Evening';
+      if (hour < 12) greeting = 'Good Morning';
+      else if (hour < 18) greeting = 'Good Afternoon';
+      
+      const title = document.getElementById('dynamic-greeting');
+      title.innerHTML = `<span style="display:block; font-size:0.6em; color:#666; margin-bottom:10px;">${greeting}!</span>` + title.innerHTML;
+    });
+  </script>
 </body>
 </html>
